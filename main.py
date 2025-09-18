@@ -2,6 +2,22 @@ import pandas as pd
 import datetime
 import os
 import sys
+import logging
+
+#configuracion logging
+os.makedirs("Log", exist_ok=True)  # Crear carpeta Log si no existe
+
+fecha = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+nombre_log= f"log_{fecha}.log",
+logging.basicConfig(
+    filename=os.path.join("Log/", nombre_log),
+    level=logging.DEBUG,
+    format="%(asctime)s - %(levelname)s - %(name)s %(linescode)- %(message)s",
+    handlers=[
+        
+    ]
+)
+
 
 def main():
     print("Inicio de ejecución")
