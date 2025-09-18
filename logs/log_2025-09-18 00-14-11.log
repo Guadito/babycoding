@@ -1,0 +1,9 @@
+2025-09-18 00:14:11,429 - INFO - __main__ 32 - Inicio de ejecucion.
+2025-09-18 00:14:11,430 - INFO - src.loader 18 - Cargando dataset desde Data/competencia_01_crudo.csv
+2025-09-18 00:14:20,207 - INFO - src.loader 21 - Dataset cargado con 978439 filas y 154 columnas
+2025-09-18 00:14:20,208 - INFO - __name__ 28 - Realizando feature engineering con 3 lags para 5 atributos
+2025-09-18 00:14:20,211 - WARNING - __name__ 43 - El atributo mcuentas_saldo_descubierto no existe en el DataFrame
+2025-09-18 00:14:20,212 - WARNING - __name__ 43 - El atributo mcaja_ahorro_saldo no existe en el DataFrame
+2025-09-18 00:14:20,212 - DEBUG - __name__ 48 - Consulta SQL: SELECT *, lag(mcuentas_saldo, 1) OVER (PARTITION BY numero_de_cliente ORDER BY foto_mes) AS mcuentas_saldo_lag_1, lag(mcuentas_saldo, 2) OVER (PARTITION BY numero_de_cliente ORDER BY foto_mes) AS mcuentas_saldo_lag_2, lag(mcuentas_saldo, 3) OVER (PARTITION BY numero_de_cliente ORDER BY foto_mes) AS mcuentas_saldo_lag_3, lag(mtarjeta_visa_consumo, 1) OVER (PARTITION BY numero_de_cliente ORDER BY foto_mes) AS mtarjeta_visa_consumo_lag_1, lag(mtarjeta_visa_consumo, 2) OVER (PARTITION BY numero_de_cliente ORDER BY foto_mes) AS mtarjeta_visa_consumo_lag_2, lag(mtarjeta_visa_consumo, 3) OVER (PARTITION BY numero_de_cliente ORDER BY foto_mes) AS mtarjeta_visa_consumo_lag_3, lag(mtarjeta_master_consumo, 1) OVER (PARTITION BY numero_de_cliente ORDER BY foto_mes) AS mtarjeta_master_consumo_lag_1, lag(mtarjeta_master_consumo, 2) OVER (PARTITION BY numero_de_cliente ORDER BY foto_mes) AS mtarjeta_master_consumo_lag_2, lag(mtarjeta_master_consumo, 3) OVER (PARTITION BY numero_de_cliente ORDER BY foto_mes) AS mtarjeta_master_consumo_lag_3 FROM df
+2025-09-18 00:14:28,219 - INFO - __name__ 58 - Feature engineering completado. DataFrame resultante con 163 columnas
+2025-09-18 00:14:28,325 - INFO - __main__ 57 - >>>> Ejecución finalizada <<<< Para más detalles, ver log_2025-09-18 00-14-11.log
