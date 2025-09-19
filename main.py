@@ -41,20 +41,29 @@ def main():
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     # 4 Guardar el DataFrame resultante
     #path = "Data/competencia_01_lag.csv"
     #df.to_csv(path, index=False)
     #logger.info(f"DataFrame resultante guardado en {path}")
     
-    
-    
-    
-    
-    
-    
     logger.info(f">>>> Ejecución finalizada <<<< Para más detalles, ver {nombre_log}")
-
-
 
 
 
