@@ -2,15 +2,17 @@ import logging
 import pandas as pd
 import os
 import datetime
+import sys
+print(sys.executable)
 
-
+import os
+import duckdb
+import pandas as pd 
 
 logger = logging.getLogger(__name__)
 
 
-
-def cargar_datos(path: str) -> pd.DataFrame | None:  #Se le pide que retorne un DataFrame o None
-
+def cargar_datos(path: str) -> pd.DataFrame | None:  #Se le pide que retorne un DataFrame o None 
     '''
     Carga un CSV desde 'path' y retorna un pandas.DataFrame.
     '''
@@ -25,3 +27,171 @@ def cargar_datos(path: str) -> pd.DataFrame | None:  #Se le pide que retorne un 
         raise #En caso de falla, sale de la funcion y propaga el error 
 
 
+
+def clase_ternaria(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Crea la clase ternaria para un DataFrame de clientes usando DuckDB.
+    Devuelve el DataFrame original con columna 'clase_ternaria'.
+    """
+    logger.info("Definiendo variable target")
+
+    # Conexión en memoria
+    conn = duckdb.connect(database=':memory:', read_only=False)
+
+    # Registro del DataFrame como tabla temporal
+    conn.register("df_tmp", df)
+
+    # Crear la clase ternaria
+    conn.execute("""
+    CREATE OR REPLACE TABLE clases AS
+    WITH periodos AS (
+        SELECT 
+            numero_de_cliente,
+            foto_mes,
+            CAST(foto_mes / 100 AS INTEGER) * 12 + (foto_mes % 100) AS periodo0
+        FROM df_tmp
+    ),
+    max_periodo AS (
+        SELECT MAX(periodo0) AS max_periodo0 FROM periodos
+    )
+    SELECT
+        d.numero_de_cliente,
+        d.foto_mes,
+        CASE
+            WHEN d.periodo0 <= m.max_periodo0 - 1
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM periodos p
+                    WHERE p.numero_de_cliente = d.numero_de_cliente
+                    AND p.periodo0 = d.periodo0 + 1
+                ) THEN 'BAJA+1'
+            WHEN d.periodo0 <= m.max_periodo0 - 2
+                AND NOT EXISTS (
+                    SELECT 1
+                    FROM periodos p
+                    WHERE p.numero_de_cliente = d.numero_de_cliente
+                    AND p.periodo0 = d.periodo0 + 2
+                ) THEN 'BAJA+2'
+            ELSE 'CONTINUA'
+        END AS clase_ternaria
+    FROM periodos d
+    CROSS JOIN max_periodo m
+    """)
+
+    # Resumen por clase y mes
+    resumen_clase_mes = conn.execute("""
+        SELECT 
+            clase_ternaria,
+            foto_mes,
+            COUNT(*) AS cantidad_clientes
+        FROM clases
+        GROUP BY clase_ternaria, foto_mes
+        ORDER BY clase_ternaria, foto_mes
+    """).df()
+
+    pivot_df = resumen_clase_mes.pivot(index='clase_ternaria', columns='foto_mes', values='cantidad_clientes').fillna(0)
+    print(pivot_df)
+
+    # Join con el DataFrame original
+    df_final = conn.execute("""
+        SELECT 
+            df_tmp.*,
+            c.clase_ternaria
+        FROM df_tmp
+        LEFT JOIN clases c
+            ON df_tmp.numero_de_cliente = c.numero_de_cliente
+           AND df_tmp.foto_mes = c.foto_mes
+    """).df()
+
+    # Log resumen final
+    n_continua = (df_final['clase_ternaria'] == "CONTINUA").sum()
+    n_baja1 = (df_final['clase_ternaria'] == "BAJA+1").sum()
+    n_baja2 = (df_final['clase_ternaria'] == "BAJA+2").sum()
+    total_bajas = n_baja1 + n_baja2
+
+    logger.info(f"Clase ternaria creada: CONTINUA={n_continua}, BAJA+1={n_baja1}, BAJA+2={n_baja2}, Total bajas={total_bajas}")
+
+    return df_final
+
+
+
+
+
+
+# def convertir_clase_ternaria_a_target(df: pd.DataFrame) -> pd.DataFrame:
+#     """
+#     Convierte clase_ternaria a target binario reemplazando en el mismo atributo:
+#     - CONTINUA = 0
+#     - BAJA+1 y BAJA+2 = 1
+  
+#     Args:
+#         df: DataFrame con columna 'clase_ternaria'
+  
+#     Returns:
+#         pd.DataFrame: DataFrame con clase_ternaria convertida a valores binarios (0, 1)
+#     """
+#     # Crear copia del DataFrame para no modificar el original
+#     df_result = df.copy()
+  
+#     # Contar valores originales para logging
+#     n_continua_orig = (df_result['clase_ternaria'] == 'CONTINUA').sum()
+#     n_baja1_orig = (df_result['clase_ternaria'] == 'BAJA+1').sum()
+#     n_baja2_orig = (df_result['clase_ternaria'] == 'BAJA+2').sum()
+  
+#     # Convertir clase_ternaria a binario en el mismo atributo
+#     df_result['clase_ternaria'] = df_result['clase_ternaria'].map({
+#         'CONTINUA': 0,
+#         'BAJA+1': 1,
+#         'BAJA+2': 1
+#     })
+  
+#     # Log de la conversión
+#     n_ceros = (df_result['clase_ternaria'] == 0).sum()
+#     n_unos = (df_result['clase_ternaria'] == 1).sum()
+  
+#     logger.info(f"Conversión completada:")
+#     logger.info(f"  Original - CONTINUA: {n_continua_orig}, BAJA+1: {n_baja1_orig}, BAJA+2: {n_baja2_orig}")
+#     logger.info(f"  Binario - 0: {n_ceros}, 1: {n_unos}")
+#     logger.info(f"  Distribución: {n_unos/(n_ceros + n_unos)*100:.2f}% casos positivos")
+  
+#     return df_result
+
+
+
+
+def convertir_clase_ternaria_a_target(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Convierte clase_ternaria a target binario usando SQL en DuckDB:
+    - CONTINUA = 0
+    - BAJA+1 y BAJA+2 = 1
+    """
+    # Conexión en memoria
+    conn = duckdb.connect(database=':memory:', read_only=False)
+    
+    # Crear tabla temporal a partir del DataFrame
+    conn.register("df_tmp", df)
+    
+    # Convertir con SQL usando CASE
+    df_result = conn.execute("""
+        SELECT *,
+            CASE 
+                WHEN clase_ternaria = 'CONTINUA' THEN 0
+                ELSE 1
+            END AS clase_ternaria_bin
+        FROM df_tmp
+    """).df()
+    
+    # Log de la conversión
+    n_ceros = (df_result['clase_ternaria_bin'] == 0).sum()
+    n_unos = (df_result['clase_ternaria_bin'] == 1).sum()
+    total = n_ceros + n_unos
+    
+    logger.info(f"Conversión completada (SQL DuckDB):")
+    logger.info(f"  Binario - 0: {n_ceros}, 1: {n_unos}")
+    logger.info(f"  Distribución: {n_unos/total*100:.2f}% casos positivos")
+    
+    # Reemplazar la columna original si querés
+    df_result['clase_ternaria'] = df_result['clase_ternaria_bin']
+    df_result.drop(columns='clase_ternaria_bin', inplace=True)
+    
+    return df_result

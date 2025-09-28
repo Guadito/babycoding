@@ -1,0 +1,24 @@
+2025-09-27 21:55:13,194 - INFO - __main__ 30 - Iniciando programa de optimización con log fechado
+2025-09-27 21:55:13,195 - INFO - __main__ 35 - Configuración cargada desde YAML
+2025-09-27 21:55:13,195 - INFO - __main__ 36 - STUDY_NAME: prueba_competencia01
+2025-09-27 21:55:13,195 - INFO - __main__ 37 - DATA_PATH: C:\Users\Guada\Desktop\babycode\Data\competencia_01_crudo.csv
+2025-09-27 21:55:13,195 - INFO - __main__ 38 - SEMILLAS: [111119, 111121, 599999, 666667, 888887]
+2025-09-27 21:55:13,196 - INFO - __main__ 39 - MES_TRAIN: 202102
+2025-09-27 21:55:13,196 - INFO - __main__ 40 - MES_VALIDACION: 202103
+2025-09-27 21:55:13,196 - INFO - __main__ 41 - MES_TEST: 202104
+2025-09-27 21:55:13,196 - INFO - __main__ 42 - GANANCIA_ACIERTO: 780000
+2025-09-27 21:55:13,196 - INFO - __main__ 43 - COSTO_ESTIMULO: 20000
+2025-09-27 21:55:13,197 - INFO - __main__ 48 - Inicio de ejecucion.
+2025-09-27 21:55:13,197 - INFO - src.loader 20 - Cargando dataset desde C:\Users\Guada\Desktop\babycode\Data\competencia_01_crudo.csv
+2025-09-27 21:55:21,701 - INFO - src.loader 23 - Dataset cargado con 978439 filas y 154 columnas
+2025-09-27 21:55:21,701 - INFO - src.loader 36 - Definiendo variable target
+2025-09-27 21:55:25,355 - INFO - src.loader 112 - Clase ternaria creada: CONTINUA=969920, BAJA+1=4581, BAJA+2=3938, Total bajas=8519
+2025-09-27 21:55:28,183 - INFO - src.loader 189 - Conversión completada (SQL DuckDB):
+2025-09-27 21:55:28,183 - INFO - src.loader 190 -   Binario - 0: 969920, 1: 8519
+2025-09-27 21:55:28,184 - INFO - src.loader 191 -   Distribución: 0.87% casos positivos
+2025-09-27 21:55:28,673 - INFO - __name__ 136 - Realizando feature engineering con 3 lags para 5 atributos
+2025-09-27 21:55:28,674 - WARNING - __name__ 151 - El atributo mcuentas_saldo_descubierto no existe en el DataFrame
+2025-09-27 21:55:28,674 - WARNING - __name__ 151 - El atributo mcaja_ahorro_saldo no existe en el DataFrame
+2025-09-27 21:55:34,829 - INFO - __name__ 166 - Feature engineering completado. DataFrame resultante con 164 columnas
+2025-09-27 21:55:34,931 - INFO - src.optimization 171 - Iniciando optimización con 100 trials
+2025-09-27 21:55:34,932 - INFO - src.optimization 172 - Configuración: TRAIN=202102, VALID=202103, SEMILLA=[111119, 111121, 599999, 666667, 888887]

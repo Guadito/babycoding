@@ -1,4 +1,0 @@
-2025-09-17 23:49:25,662 - INFO - __main__ 34 - Inicio de ejecucion.
-2025-09-17 23:49:25,662 - INFO - src.loader 18 - Cargando dataset desde Data/competencia_01_crudo.csv
-2025-09-17 23:49:33,942 - INFO - src.loader 21 - Dataset cargado con 978439 filas y 154 columnas
-2025-09-17 23:49:33,943 - INFO - __main__ 54 - >>>> Ejecución finalizada <<<< Para más detalles, ver log_2025-09-17 23-49-25.log

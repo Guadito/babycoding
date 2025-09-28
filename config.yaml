@@ -1,0 +1,11 @@
+STUDY_NAME: "competencias" 
+
+competencia01:
+            DATA_PATH: "C:\\Users\\Guada\\Desktop\\babycode\\Data\\competencia_01_crudo.csv"
+            SEMILLAS: [111119, 111121, 599999, 666667, 888887]
+            MES_TRAIN: "202102"
+            MES_VAL: "202103"
+            MES_TEST: "202104"
+            GANANCIA_ACIERTO: 780000
+            COSTO_ESTIMULO:   20000
+          

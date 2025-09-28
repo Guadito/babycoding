@@ -1,6 +1,0 @@
-2025-09-05 00:07:56.725231 Dataset cargado con 978439 filas y 154 columnas el 
-2025-09-05 00:09:34.540815 Dataset cargado con 978439 filas y 154 columnas el 
-2025-09-05 00:22:55.666882 Dataset cargado con 978439 filas y 154 columnas el 
-2025-09-05 00:25:15.879019 Dataset cargado con 978439 filas y 154 columnas el 
-2025-09-09 21:30:03.506443 Dataset cargado con 978439 filas y 154 columnas el 
-2025-09-10 20:19:58.636907 Dataset cargado con 978439 filas y 154 columnas el 

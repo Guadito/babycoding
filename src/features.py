@@ -3,7 +3,20 @@ import pandas as pd
 import duckdb
 import logging
 
+import sys
+print(sys.executable)
+
+import os
+import duckdb
+import pandas as pd 
+
+
+
+
 logger = logging.getLogger("__name__")
+
+
+
 
 
 def feature_engineering_lag(df: pd.DataFrame, columnas: list[str], cant_lag: int = 1) -> pd.DataFrame:
@@ -58,3 +71,7 @@ def feature_engineering_lag(df: pd.DataFrame, columnas: list[str], cant_lag: int
     logger.info(f"Feature engineering completado. DataFrame resultante con {df.shape[1]} columnas")
 
     return df
+
+
+
+
