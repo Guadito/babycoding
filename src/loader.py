@@ -28,7 +28,7 @@ def cargar_datos(path: str) -> pd.DataFrame | None:  #Se le pide que retorne un 
 
 
 
-def clase_ternaria(df: pd.DataFrame) -> pd.DataFrame:
+def crear_clase_ternaria(df: pd.DataFrame) -> pd.DataFrame:
     """
     Crea la clase ternaria para un DataFrame de clientes usando DuckDB.
     Devuelve el DataFrame original con columna 'clase_ternaria'.

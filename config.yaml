@@ -3,9 +3,24 @@ STUDY_NAME: "competencias"
 competencia01:
             DATA_PATH: "C:\\Users\\Guada\\Desktop\\babycode\\Data\\competencia_01_crudo.csv"
             SEMILLAS: [111119, 111121, 599999, 666667, 888887]
-            MES_TRAIN: "202102"
-            MES_VAL: "202103"
-            MES_TEST: "202104"
+            MES_TRAIN: [202101, 202102]
+            MES_VAL: 202103
+            MES_TEST: 202104
+            FINAL_TRAIN: [202101, 202102, 202103, 202104]
+            FINAL_PREDICT: 202106
             GANANCIA_ACIERTO: 780000
             COSTO_ESTIMULO:   20000
-          
+
+
+params_lgb: 
+        n_trail: 100 
+        bjective: 'binary'
+        metric: 'None'  # Métrica personalizada
+        learning_rate: [0.01, 0.3]
+        num_leaves: [20, 150]
+        max_depth: [3, 15]
+        min_child_samples: [5, 100]
+        subsample: [0.5, 1.0]
+        colsample_bytree: [0.5, 1.0]
+        bin: [30, 31]
+        }

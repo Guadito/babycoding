@@ -5,9 +5,9 @@ import sys
 import logging
 
 
-from src.features import feature_engineering_lag
+from src.features import *
 from src.config import *  #Llama a la información de config p/ correr
-from src.loader import cargar_datos, convertir_clase_ternaria_a_target, clase_ternaria
+from src.loader import *
 from src.optimization import optimizar
 
 
@@ -51,17 +51,36 @@ def main():
     os.makedirs("Data", exist_ok=True)
     df_f = cargar_datos(DATA_PATH)
     
+
     # 2- definir clase ternaria 
-    df_f = clase_ternaria(df_f)
+    df_f = crear_clase_ternaria(df_f)
     df_f = convertir_clase_ternaria_a_target (df_f)
 
-    # 3- feature engineering  
-    columnas_lag = ['mcuentas_saldo', 'mcuentas_saldo_descubierto', 'mcaja_ahorro_saldo', 'mtarjeta_visa_consumo', 'mtarjeta_master_consumo']
-    cantidad_lag = 3
-    df_f = feature_engineering_lag(df_f, columnas_lag, cantidad_lag)
+
+    # 3- feature engineering 
+    #a) ranking y lag de montos 
+    col_montos = select_col_montos(df_f)
+    df_f = feature_engineering_rank(df_f, col_montos)
+    df_f.head
+
+
+
+    print(col_montos)
+
+
+
+
+
+
+
+
+
+    #columnas_lag = ['mcuentas_saldo', 'mcuentas_saldo_descubierto', 'mcaja_ahorro_saldo', 'mtarjeta_visa_consumo', 'mtarjeta_master_consumo']
+    #cantidad_lag = 3
+    #df_f = feature_engineering_lag(df_f, columnas_lag, cantidad_lag)
 
     # 4 - optimización de hiperparámetros
-    study = optimizar(df_f, n_trials = 100)  
+    #study = optimizar(df_f, n_trials = 100)  
 
 
 

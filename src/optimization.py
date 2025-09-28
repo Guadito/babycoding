@@ -37,21 +37,24 @@ def objetivo_ganancia(trial, df) -> float:
     params = {
         'objective': 'binary',
         'metric': 'None',  # Métrica personalizada
-        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3),
-        'num_leaves': trial.suggest_int('num_leaves', 20, 150),
-        'max_depth': trial.suggest_int('max_depth', 3, 15),
-        'min_child_samples': trial.suggest_int('min_child_samples', 5, 100),
-        'subsample': trial.suggest_float('subsample', 0.5, 1.0),
-        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.5, 1.0),
+        'learning_rate': trial.suggest_float('learning_rate', PARAMETROS_LGBM['learning_rate'][0], PARAMETROS_LGBM['learning_rate'][1]),
+        'num_leaves': trial.suggest_int('num_leaves', PARAMETROS_LGBM['num_leaves'][0], PARAMETROS_LGBM['num_leaves'][1]),
+        'max_depth': trial.suggest_int('max_depth', PARAMETROS_LGBM['max_depth'][0], PARAMETROS_LGBM['max_depth'][1]),
+        'min_child_samples': trial.suggest_int('min_child_samples', PARAMETROS_LGBM['min_child_samples'][0], PARAMETROS_LGBM['min_child_samples'][1]),
+        'subsample': trial.suggest_float('subsample', PARAMETROS_LGBM['subsample'][0], PARAMETROS_LGBM['subsample'][1]),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', PARAMETROS_LGBM['colsample_bytree'][0], PARAMETROS_LGBM['colsample_bytree'][1]),
         'verbosity': -1,
         'random_state': SEMILLAS[0],  # Desde configuración YAML
     }
   
     
-    train_data = df[df['foto_mes'] == MES_TRAIN]
+
+    if isinstance(MES_TRAIN, list):
+        train_data = df[df['foto_mes'].isin(MES_TRAIN)]
+    else: train_data = df[df['foto_mes'] == MES_TRAIN]
     val_data = df[df['foto_mes'] == MES_VAL]
-    X_train = train_data.drop(['clase_ternaria'])
-    X_val = val_data.drop(['clase_ternaria'])
+    X_train = train_data.drop(columns = ['clase_ternaria'])
+    X_val = val_data.drop(columns = ['clase_ternaria'])
     y_train = train_data['clase_ternaria']
     y_val = val_data['clase_ternaria']
 
@@ -60,8 +63,10 @@ def objetivo_ganancia(trial, df) -> float:
     lgb_val = lgb.Dataset(X_val, label=y_val, reference=lgb_train)
 
 
-    model = lgb.train(params, lgb_train, num_boost_round=1000, 
-                      valid_sets=[lgb_val], early_stopping_rounds=50,
+    model = lgb.train(params, 
+                      lgb_train,  
+                      valid_sets=[lgb_val], 
+                      early_stopping_rounds=50,
                       feval=ganancia_lgb_binary)
     
     
@@ -175,12 +180,14 @@ def optimizar(df, n_trials=int, study_name: str = None ) -> optuna.Study:
     study = optuna.create_study(
         study_name=study_name,
         direction="maximize",
-        storage="sqlite:///optuna_studies.db",
-        load_if_exists=True
+        #storage="sqlite:///optuna_studies.db",
+        #load_if_exists=True
     )
 
+    objetivo_data = lambda trial: objetivo_ganancia(trial, df)
+
     # Aquí iría tu función objetivo y la optimización
-    study.optimize(objetivo_ganancia(df), n_trials=n_trials)
+    study.optimize(objetivo_data, n_trials=n_trials)
 
     # Resultados
     logger.info(f"Mejor ganancia: {study.best_value:,.0f}")

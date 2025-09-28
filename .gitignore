@@ -1,5 +1,6 @@
 .venv/
 __pycache__/
-Log/
+logs/
 Data/
 Data/competencia_01_crudo.csv
+config.yaml
