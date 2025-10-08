@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 #Ruta del archivo de configuracion
 PATH_CONFIG = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config.yaml")
 
+
 try:
     with open(PATH_CONFIG, "r") as file:
         _cfgGeneral = yaml.safe_load(file)    # <-- Lee el YAML
@@ -24,9 +25,9 @@ try:
     MES_TEST = _cfg.get("MES_TEST","202104")
     GANANCIA_ACIERTO = _cfg.get("GANANCIA_ACIERTO", None)
     COSTO_ESTIMULO =   _cfg.get("COSTO_ESTIMULO", None)
+    GENERAL_TRAIN = _cfg.get("GENERAL_TRAIN", [])
     FINAL_TRAIN = _cfg.get("FINAL_TRAIN", [])
     FINAL_PREDICT = _cfg.get("FINAL_PREDICT", "")
-
 
 except Exception as e:
     logger.error(f"Error al cargar el archivo de configuracion: {e}")
