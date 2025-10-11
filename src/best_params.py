@@ -6,16 +6,20 @@ logger = logging.getLogger(__name__)
 
 
 
-def cargar_mejores_hiperparametros(archivo_base: str = None) -> dict:
+def cargar_mejores_hiperparametros(archivo_base: str = None, n_top: int = 1) -> list[dict] | dict:
     """
-    Carga los mejores hiperparámetros desde el archivo JSON de iteraciones de Optuna.
-  
-    Args:
-        archivo_base: Nombre base del archivo (si es None, usa STUDY_NAME)
-  
-    Returns:
-        dict: Mejores hiperparámetros encontrados
-    """
+        Carga los mejores hiperparámetros desde el archivo JSON de iteraciones de Optuna.
+        Permite devolver solo el mejor o los top N trials.
+
+        Args:
+            archivo_base (str, opcional): Nombre base del archivo. Si es None, usa STUDY_NAME.
+            n_top (int, opcional): Cantidad de mejores trials a devolver. 
+                Si es 1, devuelve un dict. Si es >1, devuelve una lista de dicts.
+
+        Returns:
+            dict | list[dict]: 
+        """
+    
     if archivo_base is None:
         archivo_base = STUDY_NAME
   
@@ -28,28 +32,39 @@ def cargar_mejores_hiperparametros(archivo_base: str = None) -> dict:
         if not iteraciones:
             raise ValueError("No se encontraron iteraciones en el archivo")
   
-        # Encontrar la iteración con mayor ganancia
-        mejor_iteracion = max(iteraciones, key=lambda x: x['value'])
-        mejores_params = mejor_iteracion['params']
-        mejor_ganancia = mejor_iteracion['value']
-  
-        logger.info(f"Mejores hiperparámetros cargados desde {archivo}")
-        logger.info(f"Mejor ganancia encontrada: {mejor_ganancia:,.0f}")
-        logger.info(f"Trial número: {mejor_iteracion['trial_number']}")
-        logger.info(f"Parámetros: {mejores_params}")
-  
-        return mejores_params
-  
+        # Encontrar el top con mayor ganancia
+        iteraciones_ordenadas = sorted(iteraciones, key=lambda x: x['value'], reverse=True)
+        top_trials = iteraciones_ordenadas[:n_top]
+
+        # Construir lista de hiperparámetros
+        top_params_list = [t['params'] for t in top_trials]
+
+
+    # Logs informativos
+        for i, t in enumerate(top_trials, start=1):
+            valor = t['value']
+            trial = t.get('trial_number', 'N/A')
+            logger.info(f"Top {i}: trial {trial}, valor {valor:,.0f}")
+        
+        logger.info(f"Archivo cargado: {archivo} con top {n_top} mejores trials")
+
+        # Retorno según n_top
+        if n_top == 1:
+            return top_params_list[0]
+        else:
+            return top_params_list
+    
     except FileNotFoundError:
-        logger.error(f"No se encontró el archivo {archivo}")
-        logger.error("Asegúrate de haber ejecutado la optimización con Optuna primero")
-        raise
+            logger.error(f"No se encontró el archivo {archivo}")
+            logger.error("Asegúrate de haber ejecutado la optimización con Optuna primero")
+            raise
     except Exception as e:
-        logger.error(f"Error al cargar mejores hiperparámetros: {e}")
-        raise
+            logger.error(f"Error al cargar mejores hiperparámetros: {e}")
+            raise
 
 
 
+# -------------------------------> estadísticas optuna
 
 def obtener_estadisticas_optuna(archivo_base=None):
     """

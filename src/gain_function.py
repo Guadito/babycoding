@@ -44,7 +44,6 @@ def calcular_ganancia(y_true, y_pred):
 
 #-------------------------> Ganancia binaria para LGB
 
-
 def ganancia_lgb_binary(y_pred, y_true):
     """
     Función de ganancia para LightGBM en clasificación binaria.
@@ -60,13 +59,9 @@ def ganancia_lgb_binary(y_pred, y_true):
     # Obtener labels verdaderos
     y_true_labels = y_true.get_label()
   
-    # Convertir probabilidades a predicciones binarias
+    # Convertir probabilidades a predicciones binarias, calcular ganancia total y devolver en formato apto LGBM
     y_pred_binary = (y_pred > 0.025).astype(int)
-  
-    # Calcular ganancia usando configuración
     ganancia_total = calcular_ganancia(y_true_labels, y_pred_binary)
-  
-    # Retornar en formato esperado por LightGBM
     return 'ganancia', ganancia_total, True  # True = higher is better
 
 
@@ -94,16 +89,54 @@ def ganancia_threshold (y_pred, y_true) -> float:
         'y_true': y_true,
         'y_pred_proba': y_pred})
 
-    # Ordenar por probabilidad descendente
+    # Ordenar por probabilidad descendente y encontrar ganancia máxima
     df_ordenado = df_eval.sort('y_pred_proba', descending=True)
-
-    # Calcular ganancia individual para cada cliente
     df_ordenado = df_ordenado.with_columns((pl.when(pl.col('y_true') == 1).then(GANANCIA_ACIERTO).otherwise(-COSTO_ESTIMULO)).alias('ganancia_individual'))
-
-    # Calcular ganancia acumulada
     df_ordenado = df_ordenado.with_columns(pl.col('ganancia_individual').cum_sum().alias('ganancia_acumulada'))
-
-    # Encontrar la ganancia máxima
     ganancia_maxima = df_ordenado.select(pl.col('ganancia_acumulada').max()).item()
 
     return 'ganancia', ganancia_maxima, True
+
+
+
+# --------------------------> Ganancia para definición de umbral
+
+def calcular_ganancia_acumulada_optimizada(y_true, y_pred_proba) -> tuple:  
+    """
+    Calcula la ganancia acumulada ordenando las predicciones de mayor a menor probabilidad.
+    Versión optimizada para grandes datasets.
+  
+    Args:
+        y_true: Valores verdaderos (0 o 1)
+        y_pred_proba: Probabilidades predichas
+  
+    Returns:
+        tuple: (ganancias_acumuladas, indices_ordenados, umbral_optimo)
+    """
+    logger.info("Calculando ganancia acumulada optimizada...")
+
+    # Asegurar arrays posicionales
+    y_true = np.asarray(y_true).flatten()
+    y_pred_proba = np.asarray(y_pred_proba).flatten()
+
+    # Ordenar por probabilidad descendente
+    indices_ordenados = np.argsort(y_pred_proba)[::-1]
+    y_true_ordenado = y_true[indices_ordenados]
+    y_pred_proba_ordenado = y_pred_proba[indices_ordenados]
+
+    # Calcular ganancia acumulada vectorizada
+    ganancias_individuales = np.where(y_true_ordenado == 1, GANANCIA_ACIERTO, -COSTO_ESTIMULO)
+    ganancias_acumuladas = np.cumsum(ganancias_individuales)
+
+    # Encontrar el punto de ganancia máxima
+    indice_maximo = np.argmax(ganancias_acumuladas)
+    umbral_optimo = y_pred_proba_ordenado[indice_maximo]
+
+    # Cantidad de predicciones
+    cantidad_predicciones = len(y_true_ordenado)
+
+    logger.info(f"Ganancia máxima: {ganancias_acumuladas[indice_maximo]:,.0f} en posición {indice_maximo}")
+    logger.info(f"Umbral óptimo: {umbral_optimo:.6f}")
+    logger.info(f"Cantidad de predicciones: {cantidad_predicciones}")
+
+    return ganancias_acumuladas, indices_ordenados, umbral_optimo

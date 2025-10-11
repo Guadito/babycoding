@@ -280,14 +280,14 @@ def feature_engineering_lag_delta_batch(df: pd.DataFrame, columnas: list[str], c
         
         # Ejecutar la consulta SQL
         df_batch = duckdb.query(sql).df()
-        
+
         # Convertir a float32 inmediatamente para ahorrar memoria
         float_cols = df_batch.select_dtypes(include=['float64']).columns
         if len(float_cols) > 0:
             df_batch[float_cols] = df_batch[float_cols].astype('float32')
+       
         
         # Mergear con el resultado acumulado
-        # Removemos numero_de_cliente y foto_mes del batch excepto en la primera iteración
         cols_to_merge = [c for c in df_batch.columns if c not in ['numero_de_cliente', 'foto_mes']]
         
         df_result = df_result.merge(

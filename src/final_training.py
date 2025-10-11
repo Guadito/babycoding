@@ -8,6 +8,7 @@ from datetime import datetime
 from .config import FINAL_TRAIN, FINAL_PREDICT, SEMILLAS
 from .best_params import *
 from .gain_function import *
+from .output_manager import *
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,6 @@ def preparar_datos_entrenamiento_final(df: pd.DataFrame) -> tuple:
 
 #-----------------------------------------> entrenar modelo final
 
-
 def entrenar_modelos_finales(X_train: pd.DataFrame, y_train: pd.Series, mejores_params: dict) -> list:
     """
     Entrena múltiples modelos con diferentes semillas.
@@ -118,7 +118,7 @@ def entrenar_modelos_finales(X_train: pd.DataFrame, y_train: pd.Series, mejores_
             params,
             train_data,
             feval=ganancia_threshold,
-            num_boost_round=mejores_params.get('num_boost_round', 100)
+            num_boost_round=params.get('num_boost_round', 100)
         )
         
         modelos.append(modelo)
@@ -126,61 +126,81 @@ def entrenar_modelos_finales(X_train: pd.DataFrame, y_train: pd.Series, mejores_
     
     logger.info(f"Total de modelos entrenados: {len(modelos)}")
 
-    # --- DEBUG: mostrar la semilla real usada por cada modelo ---
-    for idx, modelo in enumerate(modelos):
-        semilla_real = modelo.params.get('random_state')
-        print(f"Modelo {idx+1} semilla real usada: {semilla_real}")
-
     return modelos
 
 
 #----------------------------------------> generar predicciones finales
 
-def generar_predicciones_finales(modelos: list, X_predict: pd.DataFrame, clientes_predict: np.ndarray, umbral: float = 0.029) -> pd.DataFrame:
+def generar_predicciones_finales(
+    modelos: list,
+    X_predict: pd.DataFrame,
+    clientes_predict: np.ndarray,
+    umbrales: list[float],
+    nombre_base: str = None) -> dict:
     """
-    Genera las predicciones finales para el período objetivo.
-  
+    Genera las predicciones finales promediando varios modelos y aplica distintos umbrales
+    para crear y guardar DataFrames de resultados.
+    
     Args:
-        modelo: Modelo entrenado
+        modelos: Lista de modelos entrenados
         X_predict: Features para predicción
         clientes_predict: IDs de clientes
-        umbral: Umbral para clasificación binaria
-  
+        umbrales: Lista de umbrales a aplicar
+        nombre_base: Nombre base para los archivos CSV (opcional)
+    
     Returns:
-        pd.DataFrame: DataFrame con numero_cliente y predict
+        dict con:
+            - 'probabilidades_promedio': np.ndarray
+            - 'resultados_por_umbral': {umbral: {'ruta': str, 'positivos': int, 'porcentaje': float}}
     """
-    logger.info(f"Generando predicciones finales con {len(modelos)} modelos.")
-  
-    # Generar probabilidades con el modelo entrenado
 
-    probabilidades_todos = []
-    for idx, modelo in enumerate(modelos):
-        proba = modelo.predict(X_predict)
-        probabilidades_todos.append(proba)
-        logger.debug(f"Predicciones del modelo {idx+1} generadas")
+    logger.info(f"Generando predicciones finales con el promedio de {len(modelos)} modelos...")
+
+    try:
+        # Generar probabilidades con cada modelo y promediarlas
+        probabilidades_todos = []
+        for idx, modelo in enumerate(modelos):
+            proba = modelo.predict(X_predict)
+            probabilidades_todos.append(proba)
+        probabilidades_promedio = np.mean(probabilidades_todos, axis=0)
+
+        # Aplicar umbrales y guardar resultados
+        resultados_por_umbral = {}
+        for umbral in umbrales:
+            try: 
+                pred_bin = (probabilidades_promedio >= umbral).astype(int)
+                resultados_df = pd.DataFrame({
+                    'numero_de_cliente': clientes_predict,
+                    'Predict': pred_bin
+                })
+
+                # Registrar estadísticas
+                positivos = int(resultados_df['Predict'].sum())
+                total = len(resultados_df)
+                porcentaje = round((positivos / total) * 100 if total > 0 else 0,2)
+                logger.info(f"Umbral {umbral}, {positivos:,} positivos ({porcentaje:.2f}%)")
+
+                # Guardar resultados en CSV
+                nombre_archivo = f"{nombre_base or STUDY_NAME}_umbral_{str(umbral).replace('.', '_')}"
+                ruta = guardar_predicciones_finales(resultados_df, nombre_archivo=nombre_archivo)
 
 
-    # Promedio de probabilidades
-    probabilidades_promedio = np.mean(probabilidades_todos, axis=0)
-  
-    # Convertir a predicciones binarias con el umbral establecido
-    predicciones_binarias = (probabilidades_promedio >= umbral).astype(int)
-  
-    # Crear DataFrame de resultados
-    resultados = pd.DataFrame({
-        'numero_de_cliente': clientes_predict,
-        'Predict': predicciones_binarias})
-    
-    # Estadísticas
-    total_predicciones = len(resultados)
-    predicciones_positivas = (resultados['Predict'] == 1).sum()
-    porcentaje_positivas = (predicciones_positivas / total_predicciones) * 100
-    
-    logger.info(f"Predicciones generadas:")
-    logger.info(f"  Total clientes: {total_predicciones:,}")
-    logger.info(f"  Predicciones positivas: {predicciones_positivas:,} ({porcentaje_positivas:.2f}%)")
-    logger.info(f"  Predicciones negativas: {total_predicciones - predicciones_positivas:,}")
-    logger.info(f"  Umbral utilizado: {umbral}")
-    logger.info(f"  Modelos promediados: {len(modelos)}")
-  
-    return resultados
+                resultados_por_umbral[umbral] = {
+                    'ruta': ruta,
+                    'positivos': int(positivos),
+                    'porcentaje': round(porcentaje, 2)
+                }
+
+            except Exception as e:
+                logger.error(f"Error al procesar umbral {umbral}: {e}", exc_info=True)
+                continue  # sigue con el siguiente umbral 
+
+
+        return {
+            'probabilidades_promedio': probabilidades_promedio,
+            'resultados_por_umbral': resultados_por_umbral
+        }
+
+    except Exception as e:
+        logger.error(f"Error al generar predicciones finales: {e}", exc_info=True)
+        raise

@@ -8,9 +8,6 @@ import json
 logger = logging.getLogger(__name__)
 
 
-
-
-
 #-----------------------------------------------------------> guardar iteracion de la optimización bayesiana
 
 def guardar_iteracion_cv(trial, ganancia_maxima, ganancias_cv, archivo_base=None):
@@ -35,8 +32,6 @@ def guardar_iteracion_cv(trial, ganancia_maxima, ganancias_cv, archivo_base=None
         'value': float(ganancia_maxima),
         'datetime': datetime.now().isoformat(),
         'state': 'COMPLETE'}  # Si llegamos aquí, el trial se completó exitosamente
-    
-
      
   
     # Cargar datos existentes si el archivo ya existe
@@ -59,10 +54,6 @@ def guardar_iteracion_cv(trial, ganancia_maxima, ganancias_cv, archivo_base=None
         json.dump(datos_existentes, f, indent=2)
   
     logger.info(f"Iteración {trial.number} guardada en {archivo} - Ganancia: {ganancia_maxima:,.0f}")
-
-
-
-
 
 
 #-----------------------------> Guardar resultados del testeo del modelo intermedio
@@ -98,7 +89,7 @@ def guardar_resultados_test(resultados_test:dict, archivo_base=None):
     with open(archivo, 'w') as f:
         json.dump(datos_existentes, f, indent=2)
   
-    logger.info(f"Resultados guardados en {archivo} - Ganancia: {resultados_test['ganancia_test']:,.0f}")
+    logger.info(f"Resultados guardados en {archivo} - Ganancia: {resultados_test['ganancia_maxima']:,.0f}")
 
 
 #-----------------------------> Guardar predicciones finales

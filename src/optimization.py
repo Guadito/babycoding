@@ -3,6 +3,8 @@ import lightgbm as lgb
 import pandas as pd
 import numpy as np
 import logging
+from itertools import combinations
+from scipy.stats import wilcoxon
 import json
 import os
 from datetime import datetime
@@ -28,7 +30,7 @@ def objetivo_ganancia_cv(trial, df) -> float:
     Función objetivo que maximiza ganancia con k-fold.
     Utiliza configuración YAML para períodos y semilla.
     Define parametros para el modelo LightGBM
-    Preparar dataset para entrenamiento con kfold y el 20% de la clase CONTINÚA
+    Preparar dataset para entrenamiento con kfold y un porcentaje de la clase CONTINÚA
     Entrena modelo con función de ganancia personalizada
     Predecir y calcular ganancia
     Guardar cada iteración en JSON
@@ -75,11 +77,6 @@ def objetivo_ganancia_cv(trial, df) -> float:
     clase_0_sample = clase_0.sample(frac=undersampling_ratio, random_state=semilla)
     train_data = pd.concat([clase_1, clase_0_sample], axis=0).sample(frac=1, random_state=semilla)
     
-    logger.info(
-    f"Dataset GENERAL TRAIN - Después del subsampleo: "
-    f"Clase 1: {len(train_data[train_data['clase_ternaria'] == 1])}, "
-    f"Clase 0: {len(train_data[train_data['clase_ternaria'] == 0])}"
-)
 
     X_train = train_data.drop(columns = ['clase_ternaria'])
     y_train = train_data['clase_ternaria']
@@ -99,7 +96,7 @@ def objetivo_ganancia_cv(trial, df) -> float:
     
     
     # Predecir probabilidades y binarizar
-    ganancias_cv =  ganancias_cv = cv_results['valid ganancia-mean']
+    ganancias_cv = cv_results['valid ganancia-mean']
     ganancia_maxima = np.max(ganancias_cv)
     best_iter = np.argmax(ganancias_cv)
     
@@ -157,59 +154,265 @@ def optimizar_cv(df, n_trials=int, study_name: str = None ) -> optuna.Study:
     logger.info(f"Total trials: {len(study.trials)}")
 
     return study
+    
+
+# ---------------------------> wilcoxon
+def evaluar_wilcoxon(df: pd.DataFrame, top_params: list, n_seeds: int = 10) -> dict:
+    """
+    Evalúa los parámetros de los mejores modelos con n_seeds, calculando la ganancia por seed.
+    Realiza pruebas de Wilcoxon pareadas entre todos los modelos y crea un ranking.
+
+    Args
+    ----
+    df : pd.DataFrame
+    top_params : list
+        Lista de diccionarios con hiperparámetros a evaluar.
+    n_seeds : int, optional
+        Número de semillas. Por defecto 10.
+
+    Returns
+    -------
+    dict con las siguientes claves:
+        'mejor_modelo' : int
+            Índice en top_params del modelo ganador (según ranking).
+        'mejor_params' : dict
+            Hiperparámetros del modelo ganador.
+        'ranking' : list of tuples
+            Lista ordenada [(idx, n_victorias, mediana_ganancia), ...] ordenada por victorias y mediana.
+        'ganancias_por_seed' : list of lists
+            Ganancias por seed para cada modelo: [[g1_seed1, ...], [g2_seed1, ...], ...].
+        'wilcoxon_pvals' : dict
+            Diccionario con p-values por par: keys = (i, j) -> p-value (i<j).
+    """
+
+    if len(top_params) < 2:
+        logger.warning("Se necesitan al menos 2 modelos para comparar con Wilcoxon.")
+        return {
+            'mejor_modelo': 0 if top_params else None,
+            'mejor_params': top_params[0] if top_params else None,
+            'ranking': [],
+            'ganancias_por_seed': [],
+            'wilcoxon_pvals': {}
+        }
+
+    logger.info(f"Evaluando {len(top_params)} modelos con {n_seeds} semillas cada uno...")
+
+    df_train = df[df['foto_mes'].isin(GENERAL_TRAIN)]
+    df_test = df[df['foto_mes'] == MES_TEST]
+    X_train = df_train.drop(columns=['clase_ternaria'])
+    y_train = df_train['clase_ternaria']
+    X_test = df_test.drop(columns=['clase_ternaria'])
+    y_test = df_test['clase_ternaria']
+
+
+    ganancias_top = []
+    pvalues_dict = {}
+ 
+    
+    for idx, params in enumerate(top_params):
+        ganancias = []
+        logger.info(f"Modelo {idx + 1}/{len(top_params)}...")
+
+        for seed in range(n_seeds):
+            params_copy = params.copy()
+            params_copy['seed'] = seed
+
+            # Extraer num_boost_round si existe, sino usar default
+            num_boost_round = params_copy.pop('num_boost_round', 100)
+
+            # Crear Dataset con los parámetros que afectan su construcción
+            train_data = lgb.Dataset(X_train, label=y_train)
+            test_data = lgb.Dataset(X_test, label=y_test, reference=train_data)
+
+            model = lgb.train(
+                params_copy, 
+                train_data,
+                num_boost_round=num_boost_round, 
+                feval=ganancia_threshold,
+                callbacks=[lgb.log_evaluation(0)]  # Silenciar output
+            )
+
+            y_pred_prob = model.predict(X_test)
+            ganancias_acum, _, _ = calcular_ganancia_acumulada_optimizada(y_test, y_pred_prob)
+            g = ganancias_acum.max()  # Solo la ganancia máxima
+            ganancias.append(g)
+
+        ganancias_top.append(ganancias)
+        logger.info(f"  Modelo {idx}: Mediana {np.median(ganancias):,.0f}")
+    
+
+
+    # Comparaciones Wilcoxon
+    logger.info("\nComparaciones Wilcoxon:")
+    n_modelos = len(ganancias_top)
+    victorias = [0] * n_modelos
+    
+    for i, j in combinations(range(n_modelos), 2):
+        try:
+            _, p = wilcoxon(ganancias_top[i], ganancias_top[j])
+        except ValueError:
+            p = 1.0  # si no se puede comparar (mismas ganancias o longitudes)
+        pvalues_dict[(i, j)] = p
+        
+        if p < 0.05:
+            ganador = i if np.median(ganancias_top[i]) > np.median(ganancias_top[j]) else j
+            victorias[ganador] += 1
+            logger.info(f"  Modelo {ganador} > Modelo {i if ganador==j else j} (p={p:.3f})")
+    
+    # --- Ranking final ---
+    ranking = [(idx, victorias[idx], np.median(ganancias_top[idx])) for idx in range(n_modelos)]
+    ranking.sort(key=lambda x: (x[1], x[2]), reverse=True)
+
+    logger.info("\nRanking final:")
+    for rank, (idx, vict, med) in enumerate(ranking, 1):
+        logger.info(f"  #{rank} Modelo {idx}: {vict} victorias | Mediana {med:,.0f}")
+
+    mejor_modelo = ranking[0][0]
+    logger.info(f"Mejor modelo: {mejor_modelo}")
+
+    
+    return {
+        'mejor_modelo': mejor_modelo,
+        'mejor_params': top_params[mejor_modelo],
+        'ranking': ranking,
+        'ganancias_por_seed': ganancias_top,
+        'wilcoxon_pvals': pvalues_dict
+    }
 
 
 #-----------------------------------------------> evalua el modelo en test
 
-def evaluar_modelo (df: pd.DataFrame, mejores_params:dict) -> tuple:
+# def evaluar_modelo (df: pd.DataFrame, mejores_params:dict) -> tuple:
+#     """
+#     Evalúa el modelo con los mejores hiperparámetros en el conjunto de test.
+#     Solo calcula la ganancia.
+  
+#     Args:
+#         df: DataFrame con todos los datos
+#         mejores_params: Mejores hiperparámetros encontrados por Optuna
+  
+#     Returns:
+#         dict: Resultados de la evaluación en test (ganancia + estadísticas básicas)
+#     """
+#     logger.info(f"Períodos de TRAIN: {GENERAL_TRAIN}, Período de test: {MES_TEST}")
+  
+#     # Preparar datos de entrenamiento (TRAIN + VALIDACION)
+#     if isinstance(GENERAL_TRAIN, list):
+#         periodos_entrenamiento = GENERAL_TRAIN
+#     else:
+#         periodos_entrenamiento = GENERAL_TRAIN
+  
+#     df_train_completo = df[df['foto_mes'].isin(periodos_entrenamiento)]
+#     df_test = df[df['foto_mes'] == MES_TEST]
+
+
+#     X_train_completo = df_train_completo.drop(columns = ['clase_ternaria'])
+#     y_train_completo = df_train_completo['clase_ternaria']
+
+#     X_test = df_test.drop(columns = ['clase_ternaria'])
+#     y_test = df_test['clase_ternaria']
+  
+    
+#     train_data = lgb.Dataset(X_train_completo, label=y_train_completo)
+#     test_data = lgb.Dataset(X_test, label=y_test, reference=train_data)
+
+
+#     # Entrenar modelo con mejores parámetros
+#     model = lgb.train(mejores_params, 
+#                       train_data,
+#                       feval=ganancia_threshold
+#                     )   
+
+
+#     # Predecir probabilidades y binarizar
+#     y_pred_prob = model.predict(X_test)
+#     y_pred_binary = (y_pred_prob > 0.025).astype(int) 
+  
+#     # Calcular solo la ganancia
+#     ganancia_test = calcular_ganancia(y_test, y_pred_binary)
+  
+#     # Estadísticas básicas
+#     total_predicciones = len(y_pred_binary)
+#     predicciones_positivas = np.sum(y_pred_binary == 1)
+#     porcentaje_positivas = (predicciones_positivas / total_predicciones) * 100
+#     verdaderos_positivos = np.sum((y_pred_binary == 1) & (y_test == 1))
+#     falsos_positivos = np.sum((y_pred_binary == 1) & (y_test == 0))
+#     verdaderos_negativos = np.sum((y_pred_binary == 0) & (y_test == 0))
+#     falsos_negativos = np.sum((y_pred_binary == 0) & (y_test == 1))
+
+#     precision = verdaderos_positivos / (verdaderos_positivos + falsos_positivos + 1e-10)  # para evitar división por cero
+#     recall = verdaderos_positivos / (verdaderos_positivos + falsos_negativos + 1e-10)
+#     accuracy = (verdaderos_positivos + verdaderos_negativos) / total_predicciones
+
+#     resultados_test = {
+#         'ganancia_test': float(ganancia_test),
+#         'total_predicciones': int(total_predicciones),
+#         'predicciones_positivas': int(predicciones_positivas),
+#         'porcentaje_positivas': float(porcentaje_positivas),
+#         'verdaderos_positivos': int(verdaderos_positivos),
+#         'falsos_positivos': int(falsos_positivos),
+#         'verdaderos_negativos': int(verdaderos_negativos),
+#         'falsos_negativos': int(falsos_negativos),
+#         'precision': float(precision),
+#         'recall': float(recall),
+#         'accuracy': float(accuracy),
+#         'timestamp': datetime.now().isoformat()
+#     }
+  
+#     guardar_resultados_test(resultados_test)
+
+#     graficar_importances_test(model)
+
+
+#     return resultados_test, y_pred_binary, y_test, y_pred_prob
+
+
+# -------------------------------> evaluar modelo considerando el punto máximo de ganancia
+
+def evaluar_modelo_optimizado (df: pd.DataFrame, mejores_params: dict) -> tuple:
     """
     Evalúa el modelo con los mejores hiperparámetros en el conjunto de test.
-    Solo calcula la ganancia, sin usar sklearn.
-  
+    Encuentra automáticamente el umbral óptimo que maximiza la ganancia.
+ 
     Args:
         df: DataFrame con todos los datos
         mejores_params: Mejores hiperparámetros encontrados por Optuna
-  
+ 
     Returns:
-        dict: Resultados de la evaluación en test (ganancia + estadísticas básicas)
+        tuple: Resultados de la evaluación + predicciones + umbral óptimo
     """
     logger.info(f"Períodos de TRAIN: {GENERAL_TRAIN}, Período de test: {MES_TEST}")
-  
-    # Preparar datos de entrenamiento (TRAIN + VALIDACION)
+ 
+    # Preparar datos de entrenamiento
     if isinstance(GENERAL_TRAIN, list):
         periodos_entrenamiento = GENERAL_TRAIN
     else:
         periodos_entrenamiento = GENERAL_TRAIN
-  
+ 
     df_train_completo = df[df['foto_mes'].isin(periodos_entrenamiento)]
     df_test = df[df['foto_mes'] == MES_TEST]
-
-
-    X_train_completo = df_train_completo.drop(columns = ['clase_ternaria'])
+    X_train_completo = df_train_completo.drop(columns=['clase_ternaria'])
     y_train_completo = df_train_completo['clase_ternaria']
-
-    X_test = df_test.drop(columns = ['clase_ternaria'])
+    X_test = df_test.drop(columns=['clase_ternaria'])
     y_test = df_test['clase_ternaria']
-  
-    
+ 
     train_data = lgb.Dataset(X_train_completo, label=y_train_completo)
     test_data = lgb.Dataset(X_test, label=y_test, reference=train_data)
-
-
+    
     # Entrenar modelo con mejores parámetros
-    model = lgb.train(mejores_params, 
-                      train_data,
-                      feval=ganancia_threshold
-                    )   
-
-
-    # Predecir probabilidades y binarizar
+    model = lgb.train(mejores_params, train_data, feval=ganancia_threshold)
+    
+    # Predecir probabilidades
     y_pred_prob = model.predict(X_test)
-    y_pred_binary = (y_pred_prob > 0.025).astype(int) 
-  
-    # Calcular solo la ganancia
-    ganancia_test = calcular_ganancia(y_test, y_pred_binary)
-  
+    
+    ganancias_acum, indices_ord, umbral_optimo = calcular_ganancia_acumulada_optimizada(y_test,y_pred_prob)
+    
+    logger.info(f"Umbral óptimo encontrado: {umbral_optimo:.6f}")
+    logger.info(f" Ganancia máxima: {max(ganancias_acum):,.0f}")
+    
+    # Ahora SÍ binarizar con el umbral óptimo
+    y_pred_binary = (y_pred_prob > umbral_optimo).astype(int)
+ 
     # Estadísticas básicas
     total_predicciones = len(y_pred_binary)
     predicciones_positivas = np.sum(y_pred_binary == 1)
@@ -218,13 +421,13 @@ def evaluar_modelo (df: pd.DataFrame, mejores_params:dict) -> tuple:
     falsos_positivos = np.sum((y_pred_binary == 1) & (y_test == 0))
     verdaderos_negativos = np.sum((y_pred_binary == 0) & (y_test == 0))
     falsos_negativos = np.sum((y_pred_binary == 0) & (y_test == 1))
-
-    precision = verdaderos_positivos / (verdaderos_positivos + falsos_positivos + 1e-10)  # para evitar división por cero
+    precision = verdaderos_positivos / (verdaderos_positivos + falsos_positivos + 1e-10)
     recall = verdaderos_positivos / (verdaderos_positivos + falsos_negativos + 1e-10)
     accuracy = (verdaderos_positivos + verdaderos_negativos) / total_predicciones
-
+    
     resultados_test = {
-        'ganancia_test': float(ganancia_test),
+        'umbral_optimo': float(umbral_optimo),  
+        'ganancia_maxima': float(max(ganancias_acum)), 
         'total_predicciones': int(total_predicciones),
         'predicciones_positivas': int(predicciones_positivas),
         'porcentaje_positivas': float(porcentaje_positivas),
@@ -237,13 +440,13 @@ def evaluar_modelo (df: pd.DataFrame, mejores_params:dict) -> tuple:
         'accuracy': float(accuracy),
         'timestamp': datetime.now().isoformat()
     }
-  
+ 
     guardar_resultados_test(resultados_test)
-
     graficar_importances_test(model)
+    
+    
+    return resultados_test, y_pred_binary, y_test, y_pred_prob, umbral_optimo
 
 
-    return resultados_test, y_pred_binary, y_test, y_pred_prob
 
 
-#-------------------------------------------------------

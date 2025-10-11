@@ -17,9 +17,9 @@ ccomisiones_mantenimiento
 experimentos: 
 
 0 - lags y deltas x tres meses, ranking general.
-1 - lags y deltas x dos meses, ranking general.  - o pts
-2 - lags y deltas x tres meses, ranking general. (competencias_1_2_iteraciones) - 6pts
-3 - lags y deltas x tres meses, ranking percentiles negativo que va entre -1, 0, 1.  (pisé el anterior) (competencias_1_2_iteraciones) - 3 pts
+1 - lags y deltas x dos meses, ranking general.   o pts
+2 - lags y deltas x tres meses, ranking general. (competencias_1_2_iteraciones)  6pts
+3 - lags y deltas x tres meses, ranking percentiles negativo que va entre -1, 0, 1.  (pisé el anterior) (competencias_1_2_iteraciones)  3 pts
 4 - lags y deltas x tres meses, ranking percentiles positivo  competencias_1_3 (HP muy largos)
 5 - lags y deltas x tres meses, ranking percentiles positivo y corto dataset en 0.029 competencias_1_4 6pts
     agrego los siguientes HP. 
@@ -27,10 +27,10 @@ experimentos:
     min_split_gain: [0.0, 1.0]
 6 - Saco ranking.   competencias_1_5 3pts
 [Prueba de semillas para correcto ensamble y de gráfico feature importances competencias_1_6]
-7 - Agrego ranking positivo [-1:0, 0:1] y bajo a 2 lags / delta. - 5pts
+7 - Agrego ranking positivo [-1:0, 0:1] y bajo a 2 lags / delta.  5pts
 8 - Subo a 4 lag y deltas: empeora, no lo pruebo en kaggle.   competencias_1_7
-9 - Vuelvo a 3 lags y cambio a métrica AUC para entrenar. competencias_1_8
-10 - 
+9 - Vuelvo a 3 lags y cambio a métrica AUC para entrenar. competencias_1_8        -10.000
+10 - Pruebo un undersampling de 0.5   competencias_1_9
 
 
 

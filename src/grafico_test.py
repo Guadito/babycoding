@@ -7,52 +7,9 @@ import logging
 import os
 from datetime import datetime
 from .config import STUDY_NAME, GANANCIA_ACIERTO, COSTO_ESTIMULO, MES_TEST
-from .gain_function import ganancia_threshold
+from .gain_function import *
 
 logger = logging.getLogger(__name__)
-
-
-
-def calcular_ganancia_acumulada_optimizada(y_true, y_pred_proba) -> tuple:
-    """
-    Calcula la ganancia acumulada ordenando las predicciones de mayor a menor probabilidad.
-    Versión optimizada para grandes datasets.
-  
-    Args:
-        y_true: Valores verdaderos (0 o 1)
-        y_pred_proba: Probabilidades predichas
-  
-    Returns:
-        tuple: (ganancias_acumuladas, indices_ordenados, umbral_optimo)
-    """
-    logger.info("Calculando ganancia acumulada optimizada...")
-
-    # Asegurar arrays posicionales
-    y_true = np.asarray(y_true).flatten()
-    y_pred_proba = np.asarray(y_pred_proba).flatten()
-
-    # Ordenar por probabilidad descendente
-    indices_ordenados = np.argsort(y_pred_proba)[::-1]
-    y_true_ordenado = y_true[indices_ordenados]
-    y_pred_proba_ordenado = y_pred_proba[indices_ordenados]
-
-    # Calcular ganancia acumulada vectorizada
-    ganancias_individuales = np.where(y_true_ordenado == 1, GANANCIA_ACIERTO, -COSTO_ESTIMULO)
-    ganancias_acumuladas = np.cumsum(ganancias_individuales)
-
-    # Encontrar el punto de ganancia máxima
-    indice_maximo = np.argmax(ganancias_acumuladas)
-    umbral_optimo = y_pred_proba_ordenado[indice_maximo]
-
-    # Cantidad de predicciones
-    cantidad_predicciones = len(y_true_ordenado)
-
-    logger.info(f"Ganancia máxima: {ganancias_acumuladas[indice_maximo]:,.0f} en posición {indice_maximo}")
-    logger.info(f"Umbral óptimo: {umbral_optimo:.6f}")
-    logger.info(f"Cantidad de predicciones: {cantidad_predicciones}")
-
-    return ganancias_acumuladas, indices_ordenados, umbral_optimo
-
 
 
 
@@ -233,7 +190,6 @@ def generar_reporte_visual_completo(y_true: np.ndarray, y_pred_proba: np.ndarray
     logger.info(f"Ganancia máxima encontrada: {reporte_completo['estadisticas_clave']['ganancia_maxima']:,.0f}")
   
     return reporte_completo
-
 
 
 # -----------------------------------> feature importances

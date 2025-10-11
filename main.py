@@ -58,16 +58,13 @@ def main():
     df_f = crear_clase_ternaria(df_f)
     df_f = convertir_clase_ternaria_a_target (df_f)
 
-    # #SAMPLE
-    # n_sample = 100000
+    #  #SAMPLE
+    # n_sample = 50000
     # df_f, _ = train_test_split(
     #     df_f,
     #     train_size=n_sample,
     #     stratify=df_f['clase_ternaria'],
     #     random_state=42)
-
-
-
 
     # 3- feature engineering 
     #a) Ranking para columnas de monto
@@ -78,47 +75,36 @@ def main():
     col = [c for c in df_f.columns if c not in ['numero_de_cliente', 'foto_mes', 'clase_ternaria']]
     df_f = feature_engineering_lag_delta_batch(df_f, col, cant_lag = 3)
     print(df_f.head)
-   
+
 
     # 4 - optimización de hiperparámetros
+    logger.info("=== INICIANDO OPTIMIZACIÓN DE HIPERPARAMETROS ===")
     study = optimizar_cv(df_f, n_trials= 100)  
 
-
-    # 5 Análisis 
-    logger.info("=== ANÁLISIS DE RESULTADOS ===")
-    trials_df = study.trials_dataframe()
-    if len(trials_df) > 0:
-        top_5 = trials_df.nlargest(5, 'value')
-        logger.info("Top 5 mejores trials:")
-        
-        for idx, trial in top_5.iterrows():
-                logger.info(f"  Trial {trial['number']}: {trial['value']:,.0f}")
-                
-    logger.info("=== OPTIMIZACIÓN COMPLETADA ===")
-
-
-
-    # 6 Test en mes desconocido
-    logger.info("=== EVALUACIÓN EN CONJUNTO DE TEST ===")
     
-    # Cargar mejores hiperparámetros
-    best_params = cargar_mejores_hiperparametros()
+    # 5 - Aplicar wilcoxon para obtener el modelo más significativo
+    logger.info("=== APLICACIÓN TEST DE WILCOXON ===")  
+    best_params = cargar_mejores_hiperparametros(n_top = 5)
+    resultado = evaluar_wilcoxon(df_f, best_params, n_seeds = 10)
+    
 
+    # 6 - Definición de umbral de ganancia óptimo
+    params_best_model = resultado['mejor_params']
+    resultados_test, y_pred_binary, y_test, y_pred_prob, umbral_optimo = evaluar_modelo_optimizado(df_f, params_best_model)
 
-    # Evaluar en test
-    resultados_test, y_pred_binary, y_test, y_pred_prob = evaluar_modelo(df_f, best_params)
-
+    
     # Resumen de evaluación en test
     logger.info("=== RESUMEN DE EVALUACIÓN EN TEST ===")
-    logger.info(f"Ganancia en test: {resultados_test['ganancia_test']:,.0f}")
+    logger.info(f"Ganancia en test: {resultados_test['ganancia_maxima']:,.0f}")
     logger.info(f"Predicciones positivas: {resultados_test['predicciones_positivas']:,} ({resultados_test['porcentaje_positivas']:.2f}%)")
 
+    
     # Grafico de test
     logger.info("=== GRAFICO DE TEST ===")
     ruta_grafico_avanzado = crear_grafico_ganancia_avanzado(y_true=y_test, y_pred_proba=y_pred_prob)
-    logger.info(f"✅ Gráficos generados: {ruta_grafico_avanzado}")
+    logger.info(f"Gráficos generados: {ruta_grafico_avanzado}")
 
-
+    
     # 7 Entrenar modelo final
     logger.info("=== ENTRENAMIENTO FINAL ===")
     logger.info("Preparar datos para entrenamiento final")
@@ -126,13 +112,11 @@ def main():
 
     # Entrenar modelo final
     logger.info("Entrenar modelo final")
-    modelo_final = entrenar_modelos_finales(X_train, y_train, best_params)
+    modelo_final = entrenar_modelos_finales(X_train, y_train, params_best_model)
 
     # Generar predicciones finales
     logger.info("Generar predicciones finales")
-    resultados = generar_predicciones_finales(modelo_final, X_predict, clientes_predict)
-  
-    guardar_predicciones_finales(resultados)
+    resultados = generar_predicciones_finales(modelo_final, X_predict, clientes_predict, umbrales=[umbral_optimo-0.010, umbral_optimo, umbral_optimo+0.010])
 
 
 
