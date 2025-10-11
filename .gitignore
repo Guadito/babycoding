@@ -3,7 +3,6 @@ __pycache__/
 logs/
 Data/
 Data/competencia_01_crudo.csv
-config.yaml
 pruebas.ipynb
 NOTAS.md
-resultados/
+resultados_original/
