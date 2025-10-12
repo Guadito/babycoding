@@ -358,7 +358,7 @@ def evaluar_modelo_optimizado (df: pd.DataFrame, mejores_params: dict) -> tuple:
     
     resultados_test = {
         'umbral_optimo': float(umbral_optimo),  
-        'ganancia_maxima': float(max(ganancias_acum)), 
+        'ganancia_test': float(max(ganancias_acum)), 
         'total_predicciones': int(total_predicciones),
         'predicciones_positivas': int(predicciones_positivas),
         'porcentaje_positivas': float(porcentaje_positivas),
@@ -381,86 +381,94 @@ def evaluar_modelo_optimizado (df: pd.DataFrame, mejores_params: dict) -> tuple:
 
 #-----------------------------------------------> evalua el modelo en test
 
-# def evaluar_modelo (df: pd.DataFrame, mejores_params:dict) -> tuple:
-#     """
-#     Evalúa el modelo con los mejores hiperparámetros en el conjunto de test.
-#     Solo calcula la ganancia.
+def evaluar_modelo (df: pd.DataFrame, mejores_params:dict) -> tuple:
+    """
+    Evalúa el modelo con los mejores hiperparámetros en el conjunto de test.
+    Solo calcula la ganancia.
   
-#     Args:
-#         df: DataFrame con todos los datos
-#         mejores_params: Mejores hiperparámetros encontrados por Optuna
+    Args:
+        df: DataFrame con todos los datos
+        mejores_params: Mejores hiperparámetros encontrados por Optuna
   
-#     Returns:
-#         dict: Resultados de la evaluación en test (ganancia + estadísticas básicas)
-#     """
-#     logger.info(f"Períodos de TRAIN: {GENERAL_TRAIN}, Período de test: {MES_TEST}")
+    Returns:
+        dict: Resultados de la evaluación en test (ganancia + estadísticas básicas)
+    """
+    logger.info(f"Períodos de TRAIN: {GENERAL_TRAIN}, Período de test: {MES_TEST}")
   
-#     # Preparar datos de entrenamiento (TRAIN + VALIDACION)
-#     if isinstance(GENERAL_TRAIN, list):
-#         periodos_entrenamiento = GENERAL_TRAIN
-#     else:
-#         periodos_entrenamiento = GENERAL_TRAIN
+    # Preparar datos de entrenamiento (TRAIN + VALIDACION)
+    if isinstance(GENERAL_TRAIN, list):
+        periodos_entrenamiento = GENERAL_TRAIN
+    else:
+        periodos_entrenamiento = GENERAL_TRAIN
   
-#     df_train_completo = df[df['foto_mes'].isin(periodos_entrenamiento)]
-#     df_test = df[df['foto_mes'] == MES_TEST]
+    df_train_completo = df[df['foto_mes'].isin(periodos_entrenamiento)]
+    df_test = df[df['foto_mes'] == MES_TEST]
 
 
-#     X_train_completo = df_train_completo.drop(columns = ['clase_ternaria'])
-#     y_train_completo = df_train_completo['clase_ternaria']
+    X_train_completo = df_train_completo.drop(columns = ['clase_ternaria'])
+    y_train_completo = df_train_completo['clase_ternaria']
 
-#     X_test = df_test.drop(columns = ['clase_ternaria'])
-#     y_test = df_test['clase_ternaria']
+    X_test = df_test.drop(columns = ['clase_ternaria'])
+    y_test = df_test['clase_ternaria']
   
     
-#     train_data = lgb.Dataset(X_train_completo, label=y_train_completo)
-#     test_data = lgb.Dataset(X_test, label=y_test, reference=train_data)
+    train_data = lgb.Dataset(X_train_completo, label=y_train_completo)
+    test_data = lgb.Dataset(X_test, label=y_test, reference=train_data)
+
+    # Copiar los parámetros para no modificar el dict original
+    mejores_params = mejores_params.copy()
+
+    # Tomar la iteración óptima si existe
+    num_boost_round = mejores_params.pop('best_iteration', None)
+    if num_boost_round is None:
+        num_boost_round = mejores_params.pop('num_boost_round', 200)  # fallback
 
 
-#     # Entrenar modelo con mejores parámetros
-#     model = lgb.train(mejores_params, 
-#                       train_data,
-#                       feval=ganancia_threshold
-#                     )   
+    # Entrenar modelo con mejores parámetros
+    model = lgb.train(mejores_params, 
+                      train_data,
+                      num_boost_round=num_boost_round,
+                      feval=ganancia_threshold
+                    )   
 
 
-#     # Predecir probabilidades y binarizar
-#     y_pred_prob = model.predict(X_test)
-#     y_pred_binary = (y_pred_prob > 0.025).astype(int) 
+    # Predecir probabilidades y binarizar
+    y_pred_prob = model.predict(X_test)
+    y_pred_binary = (y_pred_prob > 0.025).astype(int) 
   
-#     # Calcular solo la ganancia
-#     ganancia_test = calcular_ganancia(y_test, y_pred_binary)
+    # Calcular solo la ganancia
+    ganancia_test = calcular_ganancia(y_test, y_pred_binary)
   
-#     # Estadísticas básicas
-#     total_predicciones = len(y_pred_binary)
-#     predicciones_positivas = np.sum(y_pred_binary == 1)
-#     porcentaje_positivas = (predicciones_positivas / total_predicciones) * 100
-#     verdaderos_positivos = np.sum((y_pred_binary == 1) & (y_test == 1))
-#     falsos_positivos = np.sum((y_pred_binary == 1) & (y_test == 0))
-#     verdaderos_negativos = np.sum((y_pred_binary == 0) & (y_test == 0))
-#     falsos_negativos = np.sum((y_pred_binary == 0) & (y_test == 1))
+    # Estadísticas básicas
+    total_predicciones = len(y_pred_binary)
+    predicciones_positivas = np.sum(y_pred_binary == 1)
+    porcentaje_positivas = (predicciones_positivas / total_predicciones) * 100
+    verdaderos_positivos = np.sum((y_pred_binary == 1) & (y_test == 1))
+    falsos_positivos = np.sum((y_pred_binary == 1) & (y_test == 0))
+    verdaderos_negativos = np.sum((y_pred_binary == 0) & (y_test == 0))
+    falsos_negativos = np.sum((y_pred_binary == 0) & (y_test == 1))
 
-#     precision = verdaderos_positivos / (verdaderos_positivos + falsos_positivos + 1e-10)  # para evitar división por cero
-#     recall = verdaderos_positivos / (verdaderos_positivos + falsos_negativos + 1e-10)
-#     accuracy = (verdaderos_positivos + verdaderos_negativos) / total_predicciones
+    precision = verdaderos_positivos / (verdaderos_positivos + falsos_positivos + 1e-10)  # para evitar división por cero
+    recall = verdaderos_positivos / (verdaderos_positivos + falsos_negativos + 1e-10)
+    accuracy = (verdaderos_positivos + verdaderos_negativos) / total_predicciones
 
-#     resultados_test = {
-#         'ganancia_test': float(ganancia_test),
-#         'total_predicciones': int(total_predicciones),
-#         'predicciones_positivas': int(predicciones_positivas),
-#         'porcentaje_positivas': float(porcentaje_positivas),
-#         'verdaderos_positivos': int(verdaderos_positivos),
-#         'falsos_positivos': int(falsos_positivos),
-#         'verdaderos_negativos': int(verdaderos_negativos),
-#         'falsos_negativos': int(falsos_negativos),
-#         'precision': float(precision),
-#         'recall': float(recall),
-#         'accuracy': float(accuracy),
-#         'timestamp': datetime.now().isoformat()
-#     }
+    resultados_test = {
+        'ganancia_test': float(ganancia_test),
+        'total_predicciones': int(total_predicciones),
+        'predicciones_positivas': int(predicciones_positivas),
+        'porcentaje_positivas': float(porcentaje_positivas),
+        'verdaderos_positivos': int(verdaderos_positivos),
+        'falsos_positivos': int(falsos_positivos),
+        'verdaderos_negativos': int(verdaderos_negativos),
+        'falsos_negativos': int(falsos_negativos),
+        'precision': float(precision),
+        'recall': float(recall),
+        'accuracy': float(accuracy),
+        'timestamp': datetime.now().isoformat()
+    }
   
-#     guardar_resultados_test(resultados_test)
+    guardar_resultados_test(resultados_test)
+    graficar_importances_test(model)
 
-#     graficar_importances_test(model)
 
-
-#     return resultados_test, y_pred_binary, y_test, y_pred_prob
+    return resultados_test, y_pred_binary, y_test, y_pred_prob

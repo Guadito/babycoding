@@ -59,7 +59,7 @@ def main():
     df_f = crear_clase_ternaria(df_f)
     df_f = convertir_clase_ternaria_a_target (df_f)
 
-    #  #SAMPLE
+    # #  #SAMPLE
     # n_sample = 50000
     # df_f, _ = train_test_split(
     #     df_f,
@@ -91,12 +91,13 @@ def main():
 
     # 6 - Definición de umbral de ganancia óptimo
     params_best_model = resultado['mejor_params']
-    resultados_test, y_pred_binary, y_test, y_pred_prob, umbral_optimo = evaluar_modelo_optimizado(df_f, params_best_model)
+    #resultados_test, y_pred_binary, y_test, y_pred_prob, umbral_optimo = evaluar_modelo_optimizado(df_f, params_best_model)
+    resultados_test, y_pred_binary, y_test, y_pred_prob = evaluar_modelo(df_f, params_best_model)
 
     
     # Resumen de evaluación en test
     logger.info("=== RESUMEN DE EVALUACIÓN EN TEST ===")
-    logger.info(f"Ganancia en test: {resultados_test['ganancia_maxima']:,.0f}")
+    logger.info(f"Ganancia en test: {resultados_test['ganancia_test']:,.0f}")
     logger.info(f"Predicciones positivas: {resultados_test['predicciones_positivas']:,} ({resultados_test['porcentaje_positivas']:.2f}%)")
 
     
@@ -117,7 +118,7 @@ def main():
 
     # Generar predicciones finales
     logger.info("Generar predicciones finales")
-    resultados = generar_predicciones_finales(modelo_final, X_predict, clientes_predict, umbrales=[umbral_optimo-0.010, umbral_optimo, umbral_optimo+0.010])
+    resultados = generar_predicciones_finales(modelo_final, X_predict, clientes_predict, umbrales=[0.025, 0.029, 0.032])
 
 
 

@@ -26,13 +26,24 @@ experimentos:
     num_boost_round: [100, 500]
     min_split_gain: [0.0, 1.0]
 6 - Saco ranking.   competencias_1_5 3pts
-[Prueba de semillas para correcto ensamble y de gráfico feature importances competencias_1_6]
+6 - Prueba de semillas para correcto ensamble y de gráfico feature importances competencias_1_6
 7 - Agrego ranking positivo [-1:0, 0:1] y bajo a 2 lags / delta.  5pts
 8 - Subo a 4 lag y deltas: empeora, no lo pruebo en kaggle.   competencias_1_7
 9 - Vuelvo a 3 lags y cambio a métrica AUC para entrenar. competencias_1_8        -10.000
 10 - Pruebo un undersampling de 0.5   competencias_1_9
-11 - Vuelvo a undersamplin de 0.2- Agrego wilcoxon competencias_1_10_prueba
+11 - Con undersampling de 0.2, zero_as_missing: [True, False] y learning_rate: [0.07, 0.3]
+11 - Pruebo un undersampling de 0.1, zero_as_missing: [True, False] y learning_rate: [0.07, 0.3] competencias_1_11 - 
+11 - En GCP: aumento undersampling a 0.4. Bajo nuevamente learning_rate a [0.01, 0.3]. competencias_1_11_gcp
+12 - Vuelvo a learning rate [0.01, 0.3], undersampling 0.2, y corrijo min_split_gain: [0.0, 0.1] como float
+Volví a usar la función evaluar_modelo sin optimizar porque los umbrales de corte que me daba no me daban buenos resultdos. 
+hago BO para búsqueda de hiperparámetros con ganancia_th, 
+hago wilcoxon para corroborar mejor modelo, 
+testeo con el umbral 0.025, veo el límite de envíos, 
+reentreno con ganancia_th  
+predigo con umbrales=[0.025, 0.029, 0.032]
 
+
+13 - método para pesar las clases baja+1 y baja+2
 
 
 

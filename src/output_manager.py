@@ -34,10 +34,6 @@ def guardar_iteracion_cv(trial, ganancia_maxima, ganancias_cv, archivo_base=None
         'value': float(ganancia_maxima),
         'datetime': datetime.now().isoformat(),
         'state': 'COMPLETE'}  # Si llegamos aquí, el trial se completó exitosamente
-     
-    logger.info(f"DEBUG guardar_iteracion_cv:")
-    logger.info(f"  trial.params['num_boost_round']: {trial.params.get('num_boost_round')}")
-    logger.info(f"  trial.user_attrs.get('num_boost_round_original'): {trial.user_attrs.get('num_boost_round_original')}")
     
     # Cargar datos existentes si el archivo ya existe
     if os.path.exists(archivo):
@@ -94,7 +90,7 @@ def guardar_resultados_test(resultados_test:dict, archivo_base=None):
     with open(archivo, 'w') as f:
         json.dump(datos_existentes, f, indent=2)
   
-    logger.info(f"Resultados guardados en {archivo} - Ganancia: {resultados_test['ganancia_maxima']:,.0f}")
+    logger.info(f"Resultados guardados en {archivo} - Ganancia: {resultados_test['ganancia_test']:,.0f}")
 
 
 #-----------------------------> Guardar predicciones finales
