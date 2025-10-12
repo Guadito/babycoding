@@ -12,7 +12,6 @@ from src.optimization import *
 from src.best_params import *
 from src.grafico_test import *
 from src.final_training import *
-import gc
 
 ## config basico logging
 os.makedirs("logs", exist_ok=True)
@@ -37,7 +36,7 @@ logger.info("Iniciando programa de optimización con log fechado")
 ### Manejo de Configuración en YAML ###
 logger.info("Configuración cargada desde YAML")
 logger.info(f"STUDY_NAME: {STUDY_NAME}")
-logger.info(f"DATA_PATH: {DATA_PATH}")
+logger.info(f"DATA_PATH_2: {DATA_PATH_2}")
 logger.info(f"SEMILLAS: {SEMILLAS}")
 logger.info(f"TRAIN_OPTUNA: {GENERAL_TRAIN}")
 logger.info(f"MES_TEST: {MES_TEST}")
@@ -45,16 +44,17 @@ logger.info(f"TRAIN_FINAL: {FINAL_TRAIN}")
 logger.info(f"GANANCIA_ACIERTO: {GANANCIA_ACIERTO}")
 logger.info(f"COSTO_ESTIMULO: {COSTO_ESTIMULO}")
 
-gc.collect()
+
 
 def main():
     logger.info("Inicio de ejecucion.")
 
-    # 1- cargar datos
-    os.makedirs("datasets", exist_ok=True)
-    df_f = cargar_datos(DATA_PATH)
-    print(df_f.columns)
     
+    # 1- cargar datos
+    os.makedirs("dataset", exist_ok=True)
+    df_f = cargar_datos(DATA_PATH_2)
+    
+
     # 2- definir clase ternaria 
     df_f = crear_clase_ternaria(df_f)
     df_f = convertir_clase_ternaria_a_target (df_f)
@@ -70,16 +70,17 @@ def main():
     # 3- feature engineering 
     #a) Ranking para columnas de monto
     col_montos = select_col_montos(df_f)
-    df_f = feature_engineering_rank_pos(df_f, col_montos)
+    df_f = feature_engineering_rank_pos_batch(df_f, col_montos)
 
     #b) Lags y deltas para todas las columnas excepto ID cliente, foto_mes, clase.
     col = [c for c in df_f.columns if c not in ['numero_de_cliente', 'foto_mes', 'clase_ternaria']]
     df_f = feature_engineering_lag_delta_batch(df_f, col, cant_lag = 3)
+    print(df_f.head)
 
 
     # 4 - optimización de hiperparámetros
-    #logger.info("=== INICIANDO OPTIMIZACIÓN DE HIPERPARAMETROS ===")
-    #tudy = optimizar_cv(df_f, n_trials= 100)  
+    logger.info("=== INICIANDO OPTIMIZACIÓN DE HIPERPARAMETROS ===")
+    study = optimizar_cv(df_f, n_trials= 100)  
 
     
     # 5 - Aplicar wilcoxon para obtener el modelo más significativo

@@ -31,6 +31,7 @@ experimentos:
 8 - Subo a 4 lag y deltas: empeora, no lo pruebo en kaggle.   competencias_1_7
 9 - Vuelvo a 3 lags y cambio a métrica AUC para entrenar. competencias_1_8        -10.000
 10 - Pruebo un undersampling de 0.5   competencias_1_9
+11 - Vuelvo a undersamplin de 0.2- Agrego wilcoxon competencias_1_10_prueba
 
 
 

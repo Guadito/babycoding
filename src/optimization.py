@@ -49,7 +49,7 @@ def objetivo_ganancia_cv(trial, df) -> float:
         'subsample': trial.suggest_float('subsample', PARAMETROS_LGBM['subsample'][0], PARAMETROS_LGBM['subsample'][1]),
         'colsample_bytree': trial.suggest_float('colsample_bytree', PARAMETROS_LGBM['colsample_bytree'][0], PARAMETROS_LGBM['colsample_bytree'][1]),
         'max_bin': trial.suggest_int('max_bin', PARAMETROS_LGBM['max_bin'][0], PARAMETROS_LGBM['max_bin'][1]),
-        'min_split_gain': trial.suggest_int('min_split_gain', PARAMETROS_LGBM['min_split_gain'][0], PARAMETROS_LGBM['min_split_gain'][1]),
+        'min_split_gain': trial.suggest_float('min_split_gain', PARAMETROS_LGBM['min_split_gain'][0], PARAMETROS_LGBM['min_split_gain'][1]),
         'verbosity': -1,
         'random_state': SEMILLAS[0],
         'zero_as_missing': trial.suggest_categorical('zero_as_missing', [True, False]) 
