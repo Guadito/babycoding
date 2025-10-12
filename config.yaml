@@ -1,4 +1,4 @@
-STUDY_NAME: "competencias_1_11" 
+STUDY_NAME: "competencias_1_12" 
 
 competencia01:
             DATA_PATH: "C:\\Users\\Guada\\Desktop\\babycode\\datasets\\competencia_01_crudo.csv"
@@ -23,7 +23,7 @@ params_lgb:
         colsample_bytree: [0.5, 1.0]
         max_bin: [30, 80]
         num_boost_round: [100, 500]
-        min_split_gain: [0.0, 1.0]
-        undersampling: 0.1
+        min_split_gain: [0.0, 0.1]
+        undersampling: 0.2
         zero_as_missing: [True, False]
         

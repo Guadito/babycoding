@@ -53,13 +53,13 @@ def main():
     # 1- cargar datos
     os.makedirs("datasets", exist_ok=True)
     df_f = cargar_datos(DATA_PATH)
-    print(df_f.columns)
+
     
     # 2- definir clase ternaria 
     df_f = crear_clase_ternaria(df_f)
     df_f = convertir_clase_ternaria_a_target (df_f)
 
-    #  #SAMPLE
+    # #  #SAMPLE
     # n_sample = 50000
     # df_f, _ = train_test_split(
     #     df_f,
@@ -70,7 +70,7 @@ def main():
     # 3- feature engineering 
     #a) Ranking para columnas de monto
     col_montos = select_col_montos(df_f)
-    df_f = feature_engineering_rank_pos(df_f, col_montos)
+    df_f = feature_engineering_rank_pos_batch(df_f, col_montos)
 
     #b) Lags y deltas para todas las columnas excepto ID cliente, foto_mes, clase.
     col = [c for c in df_f.columns if c not in ['numero_de_cliente', 'foto_mes', 'clase_ternaria']]
@@ -79,7 +79,7 @@ def main():
 
     # 4 - optimización de hiperparámetros
     #logger.info("=== INICIANDO OPTIMIZACIÓN DE HIPERPARAMETROS ===")
-    #tudy = optimizar_cv(df_f, n_trials= 100)  
+    study = optimizar_cv(df_f, n_trials= 100)  
 
     
     # 5 - Aplicar wilcoxon para obtener el modelo más significativo
@@ -90,12 +90,13 @@ def main():
 
     # 6 - Definición de umbral de ganancia óptimo
     params_best_model = resultado['mejor_params']
-    resultados_test, y_pred_binary, y_test, y_pred_prob, umbral_optimo = evaluar_modelo_optimizado(df_f, params_best_model)
+    #resultados_test, y_pred_binary, y_test, y_pred_prob, umbral_optimo = evaluar_modelo_optimizado(df_f, params_best_model)
+    resultados_test, y_pred_binary, y_test, y_pred_prob = evaluar_modelo(df_f, params_best_model)
 
     
     # Resumen de evaluación en test
     logger.info("=== RESUMEN DE EVALUACIÓN EN TEST ===")
-    logger.info(f"Ganancia en test: {resultados_test['ganancia_maxima']:,.0f}")
+    logger.info(f"Ganancia en test: {resultados_test['ganancia_test']:,.0f}")
     logger.info(f"Predicciones positivas: {resultados_test['predicciones_positivas']:,} ({resultados_test['porcentaje_positivas']:.2f}%)")
 
     
@@ -116,7 +117,7 @@ def main():
 
     # Generar predicciones finales
     logger.info("Generar predicciones finales")
-    resultados = generar_predicciones_finales(modelo_final, X_predict, clientes_predict, umbrales=[umbral_optimo-0.010, umbral_optimo, umbral_optimo+0.010])
+    resultados = generar_predicciones_finales(modelo_final, X_predict, clientes_predict, umbrales=[0.025, 0.029, 0.032])
 
 
 
