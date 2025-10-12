@@ -74,7 +74,59 @@ def feature_engineering_rank(df: pd.DataFrame, columnas: list[str]) -> pd.DataFr
     finally:
         con.close()
 
+#-----------------------------------------------------> Rank positivo batch
 
+def feature_engineering_rank_pos_batch(df: pd.DataFrame, columnas: list[str]) -> pd.DataFrame:
+    """
+    Genera rankings normalizados por signo para las columnas especificadas,
+    procesando los datos por 'foto_mes' y columna para reducir el uso de memoria.
+    """
+    import duckdb
+
+    if not columnas:
+        raise ValueError("La lista de columnas no puede estar vacía")
+
+    columnas_validas = [col for col in columnas if col in df.columns]
+    if not columnas_validas:
+        raise ValueError("No hay columnas válidas para rankear")
+
+    logger.info(f"Generando ranking por batch: {len(columnas_validas)} columnas válidas.")
+    con = duckdb.connect(database=":memory:")
+    con.execute("SET threads=1;")
+    con.execute("SET preserve_insertion_order=false;")
+    con.execute("SET memory_limit='2GB';")
+
+    df_result = []
+
+    for mes in sorted(df["foto_mes"].unique()):
+        df_mes = df[df["foto_mes"] == mes].copy()
+        logger.info(f"Procesando foto_mes={mes} con {len(df_mes)} filas...")
+
+        con.register("df_temp", df_mes)
+
+        for col in columnas_validas:
+            sql = f"""
+            SELECT
+                {col},
+                CASE
+                    WHEN {col} = 0 THEN 0.0
+                    ELSE PERCENT_RANK() OVER (
+                        PARTITION BY SIGN({col})
+                        ORDER BY {col}
+                    )
+                END AS rank_col
+            FROM df_temp
+            """
+            df_rank = con.execute(sql).df()
+            df_mes[col] = df_rank["rank_col"]
+
+        con.unregister("df_temp")
+        df_result.append(df_mes)
+
+    con.close()
+    resultado = pd.concat(df_result, ignore_index=True)
+    logger.info(f"Feature engineering completado por batch y columna. Shape final: {resultado.shape}")
+    return resultado
 
 #-----------------------------------------------------> Rank positivo
 
@@ -307,3 +359,18 @@ def feature_engineering_lag_delta_batch(df: pd.DataFrame, columnas: list[str], c
     return df_result
 
 
+# --------------------------> clase pesada 
+
+def asignar_pesos(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    'BAJA+2': 2.5,
+    'BAJA+1': 1.5,
+    'CONTINUA': 1.0
+    """
+
+    df['clase_pesada'] = df['clase_ternaria'].map({
+        'BAJA+2': 2.5,
+        'BAJA+1': 1.5,
+        'CONTINUA': 1.0
+    })
+    return df

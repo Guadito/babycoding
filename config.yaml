@@ -1,4 +1,4 @@
-STUDY_NAME: "competencias_1_12" 
+STUDY_NAME: "competencias_1_12_prueba" 
 
 competencia01:
             DATA_PATH: "C:\\Users\\Guada\\Desktop\\babycode\\datasets\\competencia_01_crudo.csv"

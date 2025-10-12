@@ -12,6 +12,7 @@ from src.optimization import *
 from src.best_params import *
 from src.grafico_test import *
 from src.final_training import *
+from src.kaggle import *
 import gc
 
 ## config basico logging
@@ -79,7 +80,7 @@ def main():
 
     # 4 - optimización de hiperparámetros
     #logger.info("=== INICIANDO OPTIMIZACIÓN DE HIPERPARAMETROS ===")
-    study = optimizar_cv(df_f, n_trials= 100)  
+    study = optimizar_cv(df_f, n_trials= 10)  
 
     
     # 5 - Aplicar wilcoxon para obtener el modelo más significativo
@@ -105,6 +106,27 @@ def main():
     ruta_grafico_avanzado = crear_grafico_ganancia_avanzado(y_true=y_test, y_pred_proba=y_pred_prob)
     logger.info(f"Gráficos generados: {ruta_grafico_avanzado}")
 
+
+
+    # ========================================================================
+    # === INICIO: GRÁFICO ÚNICO PARA DECISIÓN DE CORTE ===
+    # ========================================================================
+    logger.info("=== GENERANDO TABLA DE DECISIÓN DE CORTE ===")
+
+    
+    cortes = [9000, 9500, 10000, 10500]
+    df_resultados = simular_cortes_kaggle(
+    y_pred_prob=y_pred_prob,
+    y_test=y_test,
+    cortes=cortes,
+    ganancia_por_corte=ganancia_por_corte,  # <-- Aquí usas la nueva función
+    random_state=42)
+
+    # Resume las ganancias promedio por corte
+    df_resumen = resumen_cortes(df_resultados)
+    print("\n=== RESULTADOS DE SIMULACIÓN DE CORTES ===")
+    print(df_resumen.to_string(index=False))
+
     
     # 7 Entrenar modelo final
     logger.info("=== ENTRENAMIENTO FINAL ===")
@@ -117,8 +139,8 @@ def main():
 
     # Generar predicciones finales
     logger.info("Generar predicciones finales")
-    resultados = generar_predicciones_finales(modelo_final, X_predict, clientes_predict, umbrales=[0.025, 0.029, 0.032])
-
+    generar_predicciones_finales_por_umbral(modelo_final, X_predict, clientes_predict, umbrales=[0.025, 0.029, 0.032])
+    generar_predicciones_por_cantidad(modelo_final, X_predict, clientes_predict, cantidades = [9000, 9500, 10000, 10500])
 
 
     # 4 Guardar el DataFrame resultante
