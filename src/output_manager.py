@@ -29,11 +29,16 @@ def guardar_iteracion_cv(trial, ganancia_maxima, ganancias_cv, archivo_base=None
     iteracion_data = {
         'trial_number': trial.number,
         'params': trial.params,
+        'num_boost_round_original': trial.user_attrs.get('num_boost_round_original'),
+        'best_iteration': trial.user_attrs.get('best_iteration', None),  # <--- lo agregamos
         'value': float(ganancia_maxima),
         'datetime': datetime.now().isoformat(),
         'state': 'COMPLETE'}  # Si llegamos aquí, el trial se completó exitosamente
      
-  
+    logger.info(f"DEBUG guardar_iteracion_cv:")
+    logger.info(f"  trial.params['num_boost_round']: {trial.params.get('num_boost_round')}")
+    logger.info(f"  trial.user_attrs.get('num_boost_round_original'): {trial.user_attrs.get('num_boost_round_original')}")
+    
     # Cargar datos existentes si el archivo ya existe
     if os.path.exists(archivo):
         with open(archivo, 'r') as f:

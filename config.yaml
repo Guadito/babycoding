@@ -1,7 +1,7 @@
-STUDY_NAME: "competencias_1_10_prueba" 
+STUDY_NAME: "competencias_1_11" 
 
 competencia01:
-            DATA_PATH: "C:\\Users\\Guada\\Desktop\\babycode\\Data\\competencia_01_crudo.csv"
+            DATA_PATH: "C:\\Users\\Guada\\Desktop\\babycode\\datasets\\competencia_01_crudo.csv"
             SEMILLAS: [111119, 111121, 599999, 666667, 888887]
             MES_TRAIN: [202101, 202102]
             MES_VAL: 202103
@@ -15,7 +15,7 @@ competencia01:
 
 
 params_lgb:  
-        learning_rate: [0.01, 0.3]
+        learning_rate: [0.07, 0.3]
         num_leaves: [20, 150]
         max_depth: [3, 15]
         min_child_samples: [5, 100]
@@ -24,5 +24,6 @@ params_lgb:
         max_bin: [30, 80]
         num_boost_round: [100, 500]
         min_split_gain: [0.0, 1.0]
-        undersampling: 0.2
+        undersampling: 0.1
+        zero_as_missing: [True, False]
         

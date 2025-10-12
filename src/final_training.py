@@ -100,10 +100,10 @@ def entrenar_modelos_finales(X_train: pd.DataFrame, y_train: pd.Series, mejores_
             'metric': None,  
             'random_state': semilla,
             'verbosity': -1,
-            **mejores_params,
-            
+            **mejores_params,           
         }
         
+
         # Normalización si hubo undersampling en la optimización bayesiana
         if undersampling_ratio != 1.0 and 'min_data_in_leaf' in params:
             valor_original = params['min_data_in_leaf']
@@ -113,12 +113,16 @@ def entrenar_modelos_finales(X_train: pd.DataFrame, y_train: pd.Series, mejores_
         # Crear dataset
         train_data = lgb.Dataset(X_train, label=y_train)
         
+        # Copiar los parámetros para no modificar el dict original 
+        params_copy = params.copy()
+        num_boost_round = num_boost_round = params_copy.pop('best_iteration', params_copy.pop('num_boost_round', 200))
+        
         # Entrenar modelo
         modelo = lgb.train(
-            params,
+            params_copy,
             train_data,
             feval=ganancia_threshold,
-            num_boost_round=params.get('num_boost_round', 100)
+            num_boost_round=num_boost_round
         )
         
         modelos.append(modelo)
