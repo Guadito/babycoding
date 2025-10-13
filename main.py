@@ -13,6 +13,8 @@ from src.best_params import *
 from src.grafico_test import *
 from src.final_training import *
 from src.kaggle import *
+import gc
+
 
 ## config basico logging
 os.makedirs("logs", exist_ok=True)
@@ -83,7 +85,7 @@ def main():
     logger.info("=== INICIANDO OPTIMIZACIÓN DE HIPERPARAMETROS ===")
     #study = optimizar_cv(df_f, n_trials= 100)  
 
-    
+
     # 5 - Aplicar wilcoxon para obtener el modelo más significativo
     logger.info("=== APLICACIÓN TEST DE WILCOXON ===")  
     best_params = cargar_mejores_hiperparametros(n_top = 5)
@@ -111,13 +113,16 @@ def main():
     # === INICIO: GRÁFICO ÚNICO PARA DECISIÓN DE CORTE ===
     # ========================================================================
     logger.info("=== GENERANDO TABLA DE DECISIÓN DE CORTE ===")
- 
-    cortes = [9000, 9500, 10000, 10500, 12000]
+
+
+    
+    cortes = [9000, 9500, 10000, 10500]
+
     df_resultados = simular_cortes_kaggle(
     y_pred_prob=y_pred_prob,
     y_test=y_test,
     cortes=cortes,
-    ganancia_por_corte=ganancia_por_corte, 
+    ganancia_por_corte=ganancia_por_corte,
     random_state=42)
 
     # Resume las ganancias promedio por corte
@@ -138,10 +143,9 @@ def main():
 
     # Generar predicciones finales
     logger.info("Generar predicciones finales")
+
     generar_predicciones_finales_por_umbral(modelo_final, X_predict, clientes_predict, umbrales=[0.020, 0.025, 0.029, 0.032])
     generar_predicciones_por_cantidad(modelo_final, X_predict, clientes_predict, cantidades = [9000, 9500, 10000, 10500, 12000])
-
-
 
     # 4 Guardar el DataFrame resultante
     #path = "Data/competencia_01_lag.csv"

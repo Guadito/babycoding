@@ -86,3 +86,4 @@ def resumen_cortes(df_lb):
     df_resumen["delta_%"] = 100 * (df_resumen["private"] - df_resumen["public"]) / df_resumen["public"]
 
     return df_resumen
+

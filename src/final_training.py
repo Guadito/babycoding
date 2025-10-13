@@ -211,6 +211,7 @@ def generar_predicciones_finales_por_umbral(
 
 #---------------------------------> generar predicciones por cantidad de envíos
 
+
 def generar_predicciones_por_cantidad(
     modelos: list,
     X_predict: pd.DataFrame,

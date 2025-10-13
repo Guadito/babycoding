@@ -1,6 +1,5 @@
 STUDY_NAME: "competencias_1_13_gcp" 
 
-
 competencia01:
             DATA_PATH: "C:\\Users\\Guada\\Desktop\\babycode\\datasets\\competencia_01_crudo.csv"
             DATA_PATH_2: '/content/datasets/competencia_01_crudo.csv'

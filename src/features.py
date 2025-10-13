@@ -74,7 +74,6 @@ def feature_engineering_rank(df: pd.DataFrame, columnas: list[str]) -> pd.DataFr
     finally:
         con.close()
 
-
 #-----------------------------------------------------> Rank positivo batch
 
 def feature_engineering_rank_pos_batch(df: pd.DataFrame, columnas: list[str]) -> pd.DataFrame:
@@ -357,3 +356,18 @@ def feature_engineering_lag_delta_batch(df: pd.DataFrame, columnas: list[str], c
     return df_result
 
 
+# --------------------------> clase pesada 
+
+def asignar_pesos(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    'BAJA+2': 2.5,
+    'BAJA+1': 1.5,
+    'CONTINUA': 1.0
+    """
+
+    df['clase_pesada'] = df['clase_ternaria'].map({
+        'BAJA+2': 2.5,
+        'BAJA+1': 1.5,
+        'CONTINUA': 1.0
+    })
+    return df
