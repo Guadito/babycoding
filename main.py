@@ -12,6 +12,7 @@ from src.optimization import *
 from src.best_params import *
 from src.grafico_test import *
 from src.final_training import *
+from src.kaggle import *
 
 ## config basico logging
 os.makedirs("logs", exist_ok=True)
@@ -80,7 +81,7 @@ def main():
 
     # 4 - optimización de hiperparámetros
     logger.info("=== INICIANDO OPTIMIZACIÓN DE HIPERPARAMETROS ===")
-    study = optimizar_cv(df_f, n_trials= 100)  
+    #study = optimizar_cv(df_f, n_trials= 100)  
 
     
     # 5 - Aplicar wilcoxon para obtener el modelo más significativo
@@ -89,7 +90,7 @@ def main():
     resultado = evaluar_wilcoxon(df_f, best_params, n_seeds = 10)
     
 
-    # 6 - Definición de umbral de ganancia óptimo
+    # 6 - Evaluar modelo en test
     params_best_model = resultado['mejor_params']
     #resultados_test, y_pred_binary, y_test, y_pred_prob, umbral_optimo = evaluar_modelo_optimizado(df_f, params_best_model)
     resultados_test, y_pred_binary, y_test, y_pred_prob = evaluar_modelo(df_f, params_best_model)
@@ -106,6 +107,24 @@ def main():
     ruta_grafico_avanzado = crear_grafico_ganancia_avanzado(y_true=y_test, y_pred_proba=y_pred_prob)
     logger.info(f"Gráficos generados: {ruta_grafico_avanzado}")
 
+    # ========================================================================
+    # === INICIO: GRÁFICO ÚNICO PARA DECISIÓN DE CORTE ===
+    # ========================================================================
+    logger.info("=== GENERANDO TABLA DE DECISIÓN DE CORTE ===")
+ 
+    cortes = [9000, 9500, 10000, 10500, 12000]
+    df_resultados = simular_cortes_kaggle(
+    y_pred_prob=y_pred_prob,
+    y_test=y_test,
+    cortes=cortes,
+    ganancia_por_corte=ganancia_por_corte, 
+    random_state=42)
+
+    # Resume las ganancias promedio por corte
+    df_resumen = resumen_cortes(df_resultados)
+    print("\n=== RESULTADOS DE SIMULACIÓN DE CORTES ===")
+    print(df_resumen.to_string(index=False))
+
     
     # 7 Entrenar modelo final
     logger.info("=== ENTRENAMIENTO FINAL ===")
@@ -115,10 +134,12 @@ def main():
     # Entrenar modelo final
     logger.info("Entrenar modelo final")
     modelo_final = entrenar_modelos_finales(X_train, y_train, params_best_model)
+    
 
     # Generar predicciones finales
     logger.info("Generar predicciones finales")
-    resultados = generar_predicciones_finales(modelo_final, X_predict, clientes_predict, umbrales=[0.025, 0.029, 0.032])
+    generar_predicciones_finales_por_umbral(modelo_final, X_predict, clientes_predict, umbrales=[0.020, 0.025, 0.029, 0.032])
+    generar_predicciones_por_cantidad(modelo_final, X_predict, clientes_predict, cantidades = [9000, 9500, 10000, 10500, 12000])
 
 
 

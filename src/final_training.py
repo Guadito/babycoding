@@ -135,7 +135,7 @@ def entrenar_modelos_finales(X_train: pd.DataFrame, y_train: pd.Series, mejores_
 
 #----------------------------------------> generar predicciones finales
 
-def generar_predicciones_finales(
+def generar_predicciones_finales_por_umbral(
     modelos: list,
     X_predict: pd.DataFrame,
     clientes_predict: np.ndarray,
@@ -203,6 +203,65 @@ def generar_predicciones_finales(
         return {
             'probabilidades_promedio': probabilidades_promedio,
             'resultados_por_umbral': resultados_por_umbral
+        }
+
+    except Exception as e:
+        logger.error(f"Error al generar predicciones finales: {e}", exc_info=True)
+        raise
+
+#---------------------------------> generar predicciones por cantidad de envíos
+
+def generar_predicciones_por_cantidad(
+    modelos: list,
+    X_predict: pd.DataFrame,
+    clientes_predict: np.ndarray,
+    cantidades: list[int],  # <--- CAMBIO 1: Ahora es una lista de enteros
+    nombre_base: str = None) -> dict:
+    """
+    Genera predicciones finales seleccionando un NÚMERO FIJO de clientes
+    con las probabilidades más altas.
+    """
+    logger.info(f"Generando predicciones finales por cantidad con {len(modelos)} modelos...")
+
+    try:
+        # Promediar las probabilidades de los modelos y aplicar  cortes por cantidad
+        probabilidades_todos = [modelo.predict(X_predict) for modelo in modelos]
+        probabilidades_promedio = np.mean(probabilidades_todos, axis=0)
+        resultados_por_cantidad = {}
+        for cantidad in cantidades:
+            try:
+                indices_ordenados = np.argsort(probabilidades_promedio)[::-1]
+                indices_top_n = indices_ordenados[:cantidad]
+                pred_bin = np.zeros_like(probabilidades_promedio, dtype=int)
+                pred_bin[indices_top_n] = 1
+
+                resultados_df = pd.DataFrame({
+                    'numero_de_cliente': clientes_predict,
+                    'Predict': pred_bin
+                })
+
+
+                positivos = int(resultados_df['Predict'].sum())
+                porcentaje = round((positivos / len(resultados_df)) * 100, 2)
+                logger.info(f"Cantidad {cantidad}, {positivos:,} positivos ({porcentaje:.2f}%)") # <--- CAMBIO 3
+
+                # Guardar resultados en CSV
+                nombre_archivo = f"{nombre_base or STUDY_NAME}_cantidad_{cantidad}" # <--- CAMBIO 4
+                ruta = guardar_predicciones_finales(resultados_df, nombre_archivo=nombre_archivo)
+
+                resultados_por_cantidad[cantidad] = {
+                    'ruta': ruta,
+                    'positivos': positivos,
+                    'porcentaje': porcentaje
+                }
+
+            except Exception as e:
+                logger.error(f"Error al procesar cantidad {cantidad}: {e}", exc_info=True)
+                continue
+
+        return {
+            'probabilidades_promedio': probabilidades_promedio,
+            'resultados_por_cantidad': resultados_por_cantidad # <--- CAMBIO 5
         }
 
     except Exception as e:

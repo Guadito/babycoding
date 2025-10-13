@@ -75,6 +75,60 @@ def feature_engineering_rank(df: pd.DataFrame, columnas: list[str]) -> pd.DataFr
         con.close()
 
 
+#-----------------------------------------------------> Rank positivo batch
+
+def feature_engineering_rank_pos_batch(df: pd.DataFrame, columnas: list[str]) -> pd.DataFrame:
+    """
+    Genera rankings normalizados por signo para las columnas especificadas,
+    procesando los datos por 'foto_mes' y columna para reducir el uso de memoria.
+    """
+    import duckdb
+
+    if not columnas:
+        raise ValueError("La lista de columnas no puede estar vacía")
+
+    columnas_validas = [col for col in columnas if col in df.columns]
+    if not columnas_validas:
+        raise ValueError("No hay columnas válidas para rankear")
+
+    logger.info(f"Generando ranking por batch: {len(columnas_validas)} columnas válidas.")
+    con = duckdb.connect(database=":memory:")
+    con.execute("SET threads=1;")
+    con.execute("SET preserve_insertion_order=false;")
+    con.execute("SET memory_limit='2GB';")
+
+    df_result = []
+
+    for mes in sorted(df["foto_mes"].unique()):
+        df_mes = df[df["foto_mes"] == mes].copy()
+        logger.info(f"Procesando foto_mes={mes} con {len(df_mes)} filas...")
+
+        con.register("df_temp", df_mes)
+
+        for col in columnas_validas:
+            sql = f"""
+            SELECT
+                {col},
+                CASE
+                    WHEN {col} = 0 THEN 0.0
+                    ELSE PERCENT_RANK() OVER (
+                        PARTITION BY SIGN({col})
+                        ORDER BY {col}
+                    )
+                END AS rank_col
+            FROM df_temp
+            """
+            df_rank = con.execute(sql).df()
+            df_mes[col] = df_rank["rank_col"]
+
+        con.unregister("df_temp")
+        df_result.append(df_mes)
+
+    con.close()
+    resultado = pd.concat(df_result, ignore_index=True)
+    logger.info(f"Feature engineering completado por batch y columna. Shape final: {resultado.shape}")
+    return resultado
+
 
 #-----------------------------------------------------> Rank positivo
 
@@ -133,8 +187,6 @@ def feature_engineering_rank_pos(df: pd.DataFrame, columnas: list[str]) -> pd.Da
 
 
 #------------------------------------------> lag
-
-
 def feature_engineering_lag(df: pd.DataFrame, columnas: list[str], cant_lag: int=1) -> pd.DataFrame:
     """
     Genera variables de lag para los atributos especificados utilizando SQL.
@@ -191,7 +243,6 @@ def feature_engineering_lag(df: pd.DataFrame, columnas: list[str], cant_lag: int
 
 
 #----------------------------> selecciona variables de montos 
-
 def select_col_montos(df: pd.DataFrame) -> list:
     """
     Selecciona columnas de "montos" de un DataFrame según patrones:
@@ -218,7 +269,6 @@ def select_col_montos(df: pd.DataFrame) -> list:
     return selected_cols
 
 #-------------------------------> Crea LAG y DELTA en batch.
-
 def feature_engineering_lag_delta_batch(df: pd.DataFrame, columnas: list[str], cant_lag: int = 1, batch_size: int = 25) -> pd.DataFrame:
     """
     Genera variables de lag y delta para los atributos especificados utilizando SQL (DuckDB).

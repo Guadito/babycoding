@@ -18,7 +18,7 @@ try:
 
     #Configuración global del proyecto
     STUDY_NAME = _cfgGeneral.get("STUDY_NAME", "competencias")
-    DATA_PATH = _cfg.get("DATA_PATH", "../Data/competencia.csv")
+    DATA_PATH_2 = _cfg.get("DATA_PATH_2", "../datasets/competencia_01_crudo.csv")
     SEMILLAS = _cfg.get("SEMILLAS", [42])
     MES_TRAIN = _cfg.get("MES_TRAIN","202101, 202102")
     MES_VAL = _cfg.get("MES_VAL", "202103")
