@@ -43,7 +43,9 @@ reentreno con ganancia_th
 predigo con umbrales=[0.025, 0.029, 0.032]       competencias_1_12_gcp
 13 - En GCP: sampleo 0.2 para OB. 
 
+
 buscar método para pesar las clases baja+1 y baja+2
+
 
 
 

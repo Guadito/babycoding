@@ -128,6 +128,7 @@ def feature_engineering_rank_pos_batch(df: pd.DataFrame, columnas: list[str]) ->
     logger.info(f"Feature engineering completado por batch y columna. Shape final: {resultado.shape}")
     return resultado
 
+
 #-----------------------------------------------------> Rank positivo
 
 def feature_engineering_rank_pos(df: pd.DataFrame, columnas: list[str]) -> pd.DataFrame:
@@ -185,8 +186,6 @@ def feature_engineering_rank_pos(df: pd.DataFrame, columnas: list[str]) -> pd.Da
 
 
 #------------------------------------------> lag
-
-
 def feature_engineering_lag(df: pd.DataFrame, columnas: list[str], cant_lag: int=1) -> pd.DataFrame:
     """
     Genera variables de lag para los atributos especificados utilizando SQL.
@@ -243,7 +242,6 @@ def feature_engineering_lag(df: pd.DataFrame, columnas: list[str], cant_lag: int
 
 
 #----------------------------> selecciona variables de montos 
-
 def select_col_montos(df: pd.DataFrame) -> list:
     """
     Selecciona columnas de "montos" de un DataFrame según patrones:
@@ -270,7 +268,6 @@ def select_col_montos(df: pd.DataFrame) -> list:
     return selected_cols
 
 #-------------------------------> Crea LAG y DELTA en batch.
-
 def feature_engineering_lag_delta_batch(df: pd.DataFrame, columnas: list[str], cant_lag: int = 1, batch_size: int = 25) -> pd.DataFrame:
     """
     Genera variables de lag y delta para los atributos especificados utilizando SQL (DuckDB).

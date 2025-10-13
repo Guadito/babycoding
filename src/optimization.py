@@ -148,9 +148,9 @@ def optimizar_cv(df, n_trials=int, study_name: str = None ) -> optuna.Study:
     study = optuna.create_study(
         study_name=study_name,
         direction="maximize",
-        sampler = optuna.samplers.TPESampler(seed= SEMILLAS[0]) 
-        #storage="sqlite:///optuna_studies.db",
-        #load_if_exists=True
+        sampler = optuna.samplers.TPESampler(seed= SEMILLAS[0]), 
+        storage="sqlite:///optuna_studies.db",
+        load_if_exists=True
     )
 
     # Aquí iría tu función objetivo y la optimización

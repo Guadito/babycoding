@@ -15,6 +15,7 @@ from src.final_training import *
 from src.kaggle import *
 import gc
 
+
 ## config basico logging
 os.makedirs("logs", exist_ok=True)
 fecha = datetime.now().strftime("%Y-%m-%d %H-%M-%S")
@@ -38,7 +39,7 @@ logger.info("Iniciando programa de optimización con log fechado")
 ### Manejo de Configuración en YAML ###
 logger.info("Configuración cargada desde YAML")
 logger.info(f"STUDY_NAME: {STUDY_NAME}")
-logger.info(f"DATA_PATH: {DATA_PATH}")
+logger.info(f"DATA_PATH_2: {DATA_PATH_2}")
 logger.info(f"SEMILLAS: {SEMILLAS}")
 logger.info(f"TRAIN_OPTUNA: {GENERAL_TRAIN}")
 logger.info(f"MES_TEST: {MES_TEST}")
@@ -46,16 +47,17 @@ logger.info(f"TRAIN_FINAL: {FINAL_TRAIN}")
 logger.info(f"GANANCIA_ACIERTO: {GANANCIA_ACIERTO}")
 logger.info(f"COSTO_ESTIMULO: {COSTO_ESTIMULO}")
 
-gc.collect()
+
 
 def main():
     logger.info("Inicio de ejecucion.")
 
-    # 1- cargar datos
-    os.makedirs("datasets", exist_ok=True)
-    df_f = cargar_datos(DATA_PATH)
-
     
+    # 1- cargar datos
+    os.makedirs("dataset", exist_ok=True)
+    df_f = cargar_datos(DATA_PATH_2)
+    
+
     # 2- definir clase ternaria 
     df_f = crear_clase_ternaria(df_f)
     df_f = convertir_clase_ternaria_a_target (df_f)
@@ -76,20 +78,21 @@ def main():
     #b) Lags y deltas para todas las columnas excepto ID cliente, foto_mes, clase.
     col = [c for c in df_f.columns if c not in ['numero_de_cliente', 'foto_mes', 'clase_ternaria']]
     df_f = feature_engineering_lag_delta_batch(df_f, col, cant_lag = 3)
+    print(df_f.head)
 
 
     # 4 - optimización de hiperparámetros
+
     #logger.info("=== INICIANDO OPTIMIZACIÓN DE HIPERPARAMETROS ===")
     study = optimizar_cv(df_f, n_trials= 100)  
 
-    
     # 5 - Aplicar wilcoxon para obtener el modelo más significativo
     logger.info("=== APLICACIÓN TEST DE WILCOXON ===")  
     best_params = cargar_mejores_hiperparametros(n_top = 5)
     resultado = evaluar_wilcoxon(df_f, best_params, n_seeds = 10)
     
 
-    # 6 - Definición de umbral de ganancia óptimo
+    # 6 - Evaluar modelo en test
     params_best_model = resultado['mejor_params']
     #resultados_test, y_pred_binary, y_test, y_pred_prob, umbral_optimo = evaluar_modelo_optimizado(df_f, params_best_model)
     resultados_test, y_pred_binary, y_test, y_pred_prob = evaluar_modelo(df_f, params_best_model)
@@ -106,15 +109,15 @@ def main():
     ruta_grafico_avanzado = crear_grafico_ganancia_avanzado(y_true=y_test, y_pred_proba=y_pred_prob)
     logger.info(f"Gráficos generados: {ruta_grafico_avanzado}")
 
-
-
     # ========================================================================
     # === INICIO: GRÁFICO ÚNICO PARA DECISIÓN DE CORTE ===
     # ========================================================================
     logger.info("=== GENERANDO TABLA DE DECISIÓN DE CORTE ===")
 
+
     
     cortes = [9000, 9500, 10000, 10500]
+
     df_resultados = simular_cortes_kaggle(
     y_pred_prob=y_pred_prob,
     y_test=y_test,
@@ -139,9 +142,9 @@ def main():
 
     # Generar predicciones finales
     logger.info("Generar predicciones finales")
-    generar_predicciones_finales_por_umbral(modelo_final, X_predict, clientes_predict, umbrales=[0.025, 0.029, 0.032])
-    generar_predicciones_por_cantidad(modelo_final, X_predict, clientes_predict, cantidades = [9000, 9500, 10000, 10500])
 
+    generar_predicciones_finales_por_umbral(modelo_final, X_predict, clientes_predict, umbrales=[0.020, 0.025, 0.029, 0.032])
+    generar_predicciones_por_cantidad(modelo_final, X_predict, clientes_predict, cantidades = [9000, 9500, 10000, 10500, 12000])
 
     # 4 Guardar el DataFrame resultante
     #path = "Data/competencia_01_lag.csv"
