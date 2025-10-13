@@ -73,9 +73,9 @@ def preparar_datos_entrenamiento_final(df: pd.DataFrame) -> tuple:
 
 #-----------------------------------------> entrenar modelo final
 
-def entrenar_modelos_finales(X_train: pd.DataFrame, y_train: pd.Series, mejores_params: dict) -> list:
+def entrenar_modelo_final(X_train: pd.DataFrame, y_train: pd.Series, mejores_params: dict) -> list:
     """
-    Entrena múltiples modelos con diferentes semillas.
+    Entrena un modelo con diferentes semillas.
     
     Args:
         X_train: Features de entrenamiento
@@ -209,8 +209,7 @@ def generar_predicciones_finales_por_umbral(
         logger.error(f"Error al generar predicciones finales: {e}", exc_info=True)
         raise
 
-
-    # ----------------------->
+#---------------------------------> generar predicciones por cantidad de envíos
 
 def generar_predicciones_por_cantidad(
     modelos: list,

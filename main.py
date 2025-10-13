@@ -80,7 +80,7 @@ def main():
 
     # 4 - optimización de hiperparámetros
     #logger.info("=== INICIANDO OPTIMIZACIÓN DE HIPERPARAMETROS ===")
-    study = optimizar_cv(df_f, n_trials= 10)  
+    study = optimizar_cv(df_f, n_trials= 100)  
 
     
     # 5 - Aplicar wilcoxon para obtener el modelo más significativo
@@ -119,7 +119,7 @@ def main():
     y_pred_prob=y_pred_prob,
     y_test=y_test,
     cortes=cortes,
-    ganancia_por_corte=ganancia_por_corte,  # <-- Aquí usas la nueva función
+    ganancia_por_corte=ganancia_por_corte,
     random_state=42)
 
     # Resume las ganancias promedio por corte
@@ -135,7 +135,7 @@ def main():
 
     # Entrenar modelo final
     logger.info("Entrenar modelo final")
-    modelo_final = entrenar_modelos_finales(X_train, y_train, params_best_model)
+    modelo_final = entrenar_modelo_final(X_train, y_train, params_best_model)
 
     # Generar predicciones finales
     logger.info("Generar predicciones finales")
