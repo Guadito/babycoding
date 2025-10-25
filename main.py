@@ -63,12 +63,12 @@ def main():
     df_f = convertir_clase_ternaria_a_target (df_f)
 
     # #  #SAMPLE
-    # n_sample = 50000
-    # df_f, _ = train_test_split(
-    #     df_f,
-    #     train_size=n_sample,
-    #     stratify=df_f['clase_ternaria'],
-    #     random_state=42)
+    #n_sample = 50000
+    #df_f, _ = train_test_split(
+    #    df_f,
+    #    train_size=n_sample,
+    #    stratify=df_f['clase_ternaria'],
+    #    random_state=42)
 
     # 3- feature engineering 
     #a) Ranking para columnas de monto
@@ -116,7 +116,7 @@ def main():
 
 
     
-    cortes = [9000, 9500, 10000, 10500]
+    cortes = [9000, 9500, 10000, 10500, 13000, 15000]
 
     df_resultados = simular_cortes_kaggle(
     y_pred_prob=y_pred_prob,
@@ -144,8 +144,8 @@ def main():
     # Generar predicciones finales
     logger.info("Generar predicciones finales")
 
-    generar_predicciones_finales_por_umbral(modelo_final, X_predict, clientes_predict, umbrales=[0.020, 0.025, 0.029, 0.032])
-    generar_predicciones_por_cantidad(modelo_final, X_predict, clientes_predict, cantidades = [9000, 9500, 10000, 10500, 12000])
+    generar_predicciones_finales_por_umbral(modelo_final, X_predict, clientes_predict, umbrales=[0.020, 0.025, 0.030, 0.050])
+    generar_predicciones_por_cantidad(modelo_final, X_predict, clientes_predict, cantidades =  [9000, 9500, 10000, 10500, 13000, 15000])
 
     # 4 Guardar el DataFrame resultante
     #path = "Data/competencia_01_lag.csv"

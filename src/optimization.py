@@ -12,6 +12,7 @@ from .config import *
 from .gain_function import calcular_ganancia, ganancia_lgb_binary, ganancia_threshold
 from .output_manager import *
 from .grafico_test import *
+from sklearn.metrics import roc_auc_score
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +42,7 @@ def objetivo_ganancia_cv(trial, df) -> float:
     # Hiperparámetros a optimizar
     params = {
         'objective': 'binary',
-        'metric': 'None',  
+        'metric': 'auc',  
         'learning_rate': trial.suggest_float('learning_rate', PARAMETROS_LGBM['learning_rate'][0], PARAMETROS_LGBM['learning_rate'][1]),
         'num_leaves': trial.suggest_int('num_leaves', PARAMETROS_LGBM['num_leaves'][0], PARAMETROS_LGBM['num_leaves'][1]),
         'max_depth': trial.suggest_int('max_depth', PARAMETROS_LGBM['max_depth'][0], PARAMETROS_LGBM['max_depth'][1]),
@@ -87,19 +88,21 @@ def objetivo_ganancia_cv(trial, df) -> float:
     
 
     cv_results = lgb.cv(params,
+                    train_set=lgb_train,
                     num_boost_round=num_boost_round,
                     nfold=5,
                     stratified=True,                 
-                    train_set=lgb_train,
                     shuffle = True,  
                     seed = SEMILLAS[0],
-                    feval=ganancia_threshold,   #METRIC SE LA DECLARA VACÍA Y EN SU LUGAR SE USA FEVAL
+                    #feval=ganancia_threshold,   #METRIC SE LA DECLARA VACÍA Y EN SU LUGAR SE USA FEVAL
                     callbacks=[lgb.early_stopping(50), lgb.log_evaluation(10)])
     
     # Predecir probabilidades y binarizar
-    ganancias_cv = cv_results['valid ganancia-mean']
-    ganancia_maxima = np.max(ganancias_cv)
-    best_iter = np.argmax(ganancias_cv)+1
+    auc_cv = cv_results['valid auc-mean']   #['valid ganancia-mean'] 
+    best_iter = np.argmax(auc_cv) + 1  #best_iter = np.argmax(ganancias_cv)+1
+    auc_maxima = np.max(auc_cv) #ganancia_maxima = np.max(ganancias_cv)
+    
+    
 
     #Guardar el nro original de árboles y el optimizado:
     num_boost_round_original = trial.params['num_boost_round']
@@ -109,13 +112,14 @@ def objetivo_ganancia_cv(trial, df) -> float:
 
 
     
-    logger.debug(f"Trial {trial.number}: Ganancia = {ganancia_maxima:,.0f}")
+    logger.debug(f"Trial {trial.number}: Ganancia = {auc_maxima:,.0f}")
     logger.debug(f"Trial {trial.number}: Mejor iteracion = {best_iter:,.0f}")
     
-    guardar_iteracion_cv(trial, ganancia_maxima, ganancias_cv, archivo_base=None)
+    guardar_iteracion_cv(trial, auc_maxima, auc_cv, archivo_base=None)
+    #guardar_iteracion_cv(trial, ganancia_maxima, ganancias_cv, archivo_base=None)
     
-    return ganancia_maxima
-
+    return auc_maxima
+    #return ganancia_maxima
 
 #---------------------------------------------------------------> Parametrización OPTUNA + aplicación de OB
 
@@ -157,8 +161,8 @@ def optimizar_cv(df, n_trials=int, study_name: str = None ) -> optuna.Study:
     study.optimize(lambda trial: objetivo_ganancia_cv(trial, df), n_trials=n_trials)
 
     # Resultados
-    logger.info(f"Mejor ganancia: {study.best_value:,.0f}")
-    logger.info(f"Optimizacion CV completada. Mejor ganancia promedio: {study.best_value:,.0f}")
+    logger.info(f"Mejor valor: {study.best_value:,.4f}")
+    logger.info(f"Optimizacion CV completada. Mejor valor promedio: {study.best_value:,.4f}")
     logger.info(f"Mejores parámetros: {study.best_params}")
     logger.info(f"Total trials: {len(study.trials)}")
 
@@ -238,17 +242,18 @@ def evaluar_wilcoxon(df: pd.DataFrame, top_params: list, n_seeds: int = 10) -> d
                 params_copy, 
                 train_data,
                 num_boost_round=num_boost_round, 
-                feval=ganancia_threshold,
+                #feval=ganancia_threshold,
                 callbacks=[lgb.log_evaluation(0)]
             )
 
             y_pred_prob = model.predict(X_test)
-            ganancias_acum, _, _ = calcular_ganancia_acumulada_optimizada(y_test, y_pred_prob)
-            g = ganancias_acum.max()  # Solo la ganancia máxima
-            ganancias.append(g)
+            auc_seed = roc_auc_score(y_test, y_pred_prob)
+            #ganancias_acum, _, _ = calcular_ganancia_acumulada_optimizada(y_test, y_pred_prob)  
+            #g = ganancias_acum.max()  # Solo la ganancia máxima
+            ganancias.append(auc_seed) #ganancias.append(g)
 
         ganancias_top.append(ganancias)
-        logger.info(f"  Modelo {idx}: Mediana {np.median(ganancias):,.0f}")
+        logger.info(f"  Modelo {idx}: Mediana {np.median(ganancias):,.4f}")
     
 
 
@@ -428,7 +433,7 @@ def evaluar_modelo (df: pd.DataFrame, mejores_params:dict) -> tuple:
     model = lgb.train(mejores_params, 
                       train_data,
                       num_boost_round=num_boost_round,
-                      feval=ganancia_threshold
+                      #feval=ganancia_threshold
                     )   
 
 
@@ -436,8 +441,9 @@ def evaluar_modelo (df: pd.DataFrame, mejores_params:dict) -> tuple:
     y_pred_prob = model.predict(X_test)
     y_pred_binary = (y_pred_prob > 0.025).astype(int) 
   
-    # Calcular solo la ganancia
+    # Calcular ganancia
     ganancia_test = calcular_ganancia(y_test, y_pred_binary)
+    auc_test = roc_auc_score(y_test, y_pred_prob)
   
     # Estadísticas básicas
     total_predicciones = len(y_pred_binary)
@@ -464,7 +470,8 @@ def evaluar_modelo (df: pd.DataFrame, mejores_params:dict) -> tuple:
         'precision': float(precision),
         'recall': float(recall),
         'accuracy': float(accuracy),
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now().isoformat(),
+        'auc_test':  float(auc_test)
     }
   
     guardar_resultados_test(resultados_test)

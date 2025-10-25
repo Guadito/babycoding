@@ -96,8 +96,7 @@ def entrenar_modelos_finales(X_train: pd.DataFrame, y_train: pd.Series, mejores_
         
         # Configurar parámetros con la semilla actual
         params = {
-            'objective': 'binary',
-            'metric': None,  
+            'objective': 'binary', 
             'random_state': semilla,
             'verbosity': -1,
             **mejores_params,           
@@ -121,7 +120,7 @@ def entrenar_modelos_finales(X_train: pd.DataFrame, y_train: pd.Series, mejores_
         modelo = lgb.train(
             params_copy,
             train_data,
-            feval=ganancia_threshold,
+            #feval=ganancia_threshold,
             num_boost_round=num_boost_round
         )
         

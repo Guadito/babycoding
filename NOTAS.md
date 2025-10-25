@@ -41,9 +41,11 @@ hago wilcoxon para corroborar mejor modelo,
 testeo con el umbral 0.025, veo el límite de envíos, 
 reentreno con ganancia_th  
 predigo con umbrales=[0.025, 0.029, 0.032]
+13 - En GCP: sampleo 0.1 para OB. competencias_1_12_gcp
+13 - En GCP: sampleo 0.2 para OB. competencias_1_13_gcp
+13 - En GCP: sampleo 0.2 para OB y hago 2 lags. competencias_1_14_gcp
 
-
-13 - método para pesar las clases baja+1 y baja+2
+buscar método para pesar las clases baja+1 y baja+2
 
 
 
