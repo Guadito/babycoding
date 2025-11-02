@@ -17,12 +17,15 @@ try:
 
 
     #Configuración global del proyecto
-    STUDY_NAME = _cfgGeneral.get("STUDY_NAME", "competencias")
-    DATA_PATH_2 = _cfg.get("DATA_PATH_2", "../datasets/competencia_01_crudo.csv")
+    STUDY_NAME = _cfgGeneral.get("STUDY_NAME", None)
+    DATA_PATH_BASE_NT = _cfg.get("DATA_PATH_BASE_NT", "C:\\Users\\Guada\\Desktop\\dmeyf\\datasets\\competencia_01_crudo.csv")
+    DATA_PATH_BASE_VM = _cfg.get("DATA_PATH_BASE_VM", "../datasets/competencia_01_crudo.csv")
+    DATA_PATH_TRANS_VM = _cfg.get("DATA_PATH_TRANS_VM", "../datasets/competencia_01_crudo.csv")
+    BUCKET_NAME = _cfgGeneral.get("BUCKET_NAME", None)
     SEMILLAS = _cfg.get("SEMILLAS", [42])
-    MES_TRAIN = _cfg.get("MES_TRAIN","202101, 202102")
-    MES_VAL = _cfg.get("MES_VAL", "202103")
-    MES_TEST = _cfg.get("MES_TEST","202104")
+    MES_TRAIN = _cfg.get("MES_TRAIN",[])
+    MES_VAL = _cfg.get("MES_VAL", [])
+    MES_TEST = _cfg.get("MES_TEST",[])
     GANANCIA_ACIERTO = _cfg.get("GANANCIA_ACIERTO", None)
     COSTO_ESTIMULO =   _cfg.get("COSTO_ESTIMULO", None)
     GENERAL_TRAIN = _cfg.get("GENERAL_TRAIN", [])

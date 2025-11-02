@@ -27,6 +27,7 @@ def cargar_datos(path: str) -> pd.DataFrame | None:  #Se le pide que retorne un 
         raise #En caso de falla, sale de la funcion y propaga el error 
 
 
+#----------------------> creación de clase ternaria a partir de la identificación de los períodos
 
 def crear_clase_ternaria(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -114,40 +115,116 @@ def crear_clase_ternaria(df: pd.DataFrame) -> pd.DataFrame:
     return df_final
 
 
+#-------------------> Convertir clase ternaria a target con identificación de los tipos bajas
 
-def convertir_clase_ternaria_a_target(df: pd.DataFrame) -> pd.DataFrame:
+def convertir_clase_ternaria_a_target(df: pd.DataFrame, baja_2_1=True) -> pd.DataFrame:
     """
     Convierte clase_ternaria a target binario usando SQL en DuckDB:
     - CONTINUA = 0
-    - BAJA+1 y BAJA+2 = 1
+    - Si baja_2_1=True: BAJA+1 y BAJA+2 = 1
+    - Si baja_2_1=False: BAJA+1 = 0 y BAJA+2 = 1
+    
+    Args:
+        df: DataFrame con columna 'clase_ternaria'
+        baja_2_1: Booleano que indica si se considera BAJA+1 como positivo
+        
+    Returns:
+        pd.DataFrame: DataFrame con clase_ternaria convertida a valores binarios (0, 1)
     """
     # Conexión en memoria
     conn = duckdb.connect(database=':memory:', read_only=False)
-    
+   
     # Crear tabla temporal a partir del DataFrame
     conn.register("df_tmp", df)
     
-    # Convertir con SQL usando CASE
-    df_result = conn.execute("""
-        SELECT *,
-            CASE 
-                WHEN clase_ternaria = 'CONTINUA' THEN 0
-                ELSE 1
-            END AS clase_ternaria_bin
+    # Contar valores originales para logging
+    valores_orig = conn.execute("""
+        SELECT 
+            clase_ternaria,
+            COUNT(*) as count
         FROM df_tmp
+        GROUP BY clase_ternaria
     """).df()
     
+    n_continua_orig = valores_orig[valores_orig['clase_ternaria'] == 'CONTINUA']['count'].sum()
+    n_baja1_orig = valores_orig[valores_orig['clase_ternaria'] == 'BAJA+1']['count'].sum()
+    n_baja2_orig = valores_orig[valores_orig['clase_ternaria'] == 'BAJA+2']['count'].sum()
+   
+    # Convertir con SQL usando CASE según baja_2_1
+    if baja_2_1:
+        query = """
+            SELECT * EXCLUDE (clase_ternaria),
+                CASE
+                    WHEN clase_ternaria = 'CONTINUA' THEN 0
+                    ELSE 1
+                END AS clase_ternaria
+            FROM df_tmp
+        """
+    else:
+        query = """
+            SELECT * EXCLUDE (clase_ternaria),
+                CASE
+                    WHEN clase_ternaria = 'BAJA+2' THEN 1
+                    ELSE 0
+                END AS clase_ternaria
+            FROM df_tmp
+        """
+    
+    df_result = conn.execute(query).df()
+   
     # Log de la conversión
-    n_ceros = (df_result['clase_ternaria_bin'] == 0).sum()
-    n_unos = (df_result['clase_ternaria_bin'] == 1).sum()
+    n_ceros = (df_result['clase_ternaria'] == 0).sum()
+    n_unos = (df_result['clase_ternaria'] == 1).sum()
     total = n_ceros + n_unos
-    
-    logger.info(f"Clase ternaria convertida en target:")
-    logger.info(f"  Binario - Clase 0: {n_ceros}, Clase 1: {n_unos}")
+   
+    logger.info(f"Conversión completada:")
+    logger.info(f"  Original - CONTINUA: {n_continua_orig}, BAJA+1: {n_baja1_orig}, BAJA+2: {n_baja2_orig}")
+    logger.info(f"  Binario - 0: {n_ceros}, 1: {n_unos}")
     logger.info(f"  Distribución: {n_unos/total*100:.2f}% casos positivos")
-    
-    # Reemplazar la columna original si querés
-    df_result['clase_ternaria'] = df_result['clase_ternaria_bin']
-    df_result.drop(columns='clase_ternaria_bin', inplace=True)
+   
+    conn.close()
     
     return df_result
+
+
+
+#-------------------------> convertir clase ternaria a target 0-1 simple
+
+
+
+# def convertir_clase_ternaria_a_target(df: pd.DataFrame) -> pd.DataFrame:
+#     """
+#     Convierte clase_ternaria a target binario usando SQL en DuckDB:
+#     - CONTINUA = 0
+#     - BAJA+1 y BAJA+2 = 1
+#     """
+#     # Conexión en memoria
+#     conn = duckdb.connect(database=':memory:', read_only=False)
+    
+#     # Crear tabla temporal a partir del DataFrame
+#     conn.register("df_tmp", df)
+    
+#     # Convertir con SQL usando CASE
+#     df_result = conn.execute("""
+#         SELECT *,
+#             CASE 
+#                 WHEN clase_ternaria = 'CONTINUA' THEN 0
+#                 ELSE 1
+#             END AS clase_ternaria_bin
+#         FROM df_tmp
+#     """).df()
+    
+#     # Log de la conversión
+#     n_ceros = (df_result['clase_ternaria_bin'] == 0).sum()
+#     n_unos = (df_result['clase_ternaria_bin'] == 1).sum()
+#     total = n_ceros + n_unos
+    
+#     logger.info(f"Clase ternaria convertida en target:")
+#     logger.info(f"  Binario - Clase 0: {n_ceros}, Clase 1: {n_unos}")
+#     logger.info(f"  Distribución: {n_unos/total*100:.2f}% casos positivos")
+    
+#     # Reemplazar la columna original si querés
+#     df_result['clase_ternaria'] = df_result['clase_ternaria_bin']
+#     df_result.drop(columns='clase_ternaria_bin', inplace=True)
+    
+#     return df_result

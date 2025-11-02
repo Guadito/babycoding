@@ -59,9 +59,6 @@ def ganancia_por_corte(y_prob, y_true_full, n_envios):
 
 
 
-import pandas as pd
-import matplotlib.pyplot as plt
-
 def resumen_cortes(df_lb):
     """
     Devuelve una tabla resumen con la ganancia promedio por corte (public/private)

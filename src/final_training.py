@@ -9,6 +9,7 @@ from .config import FINAL_TRAIN, FINAL_PREDICT, SEMILLAS
 from .best_params import *
 from .gain_function import *
 from .output_manager import *
+from .loader import convertir_clase_ternaria_a_target
 
 logger = logging.getLogger(__name__)
 
@@ -32,26 +33,27 @@ def preparar_datos_entrenamiento_final(df: pd.DataFrame) -> tuple:
   
     # Datos de predicción: período FINAL_PREDIC 
     if isinstance(FINAL_TRAIN, list):
-        train_data = df[df['foto_mes'].isin(FINAL_TRAIN)]
-    else: train_data = df[df['foto_mes'] == FINAL_TRAIN]
+        df_train = df[df['foto_mes'].isin(FINAL_TRAIN)]
+    else: df_train = df[df['foto_mes'] == FINAL_TRAIN]
     
     predict_data = df[df['foto_mes'] == FINAL_PREDICT]
 
-    logger.info(f"Registros de entrenamiento: {len(train_data):,}")
+    logger.info(f"Registros de entrenamiento: {len(df_train):,}")
     logger.info(f"Registros de predicción: {len(predict_data):,}")
   
     # Corroborar que no estén vacíos los df
-    if train_data.empty:
+    if df_train.empty:
         raise ValueError(f"No se encontraron datos de entrenamiento para foto_mes: {FINAL_TRAIN}")
     if predict_data.empty:
         raise ValueError(f"No se encontraron datos de predicción para foto_mes: {FINAL_PREDICT}")
 
     logger.info("Validación exitosa: ambos dataframes contienen datos")
 
+    df_train = convertir_clase_ternaria_a_target(df_train, baja_2_1=True) # Entreno el modelo con Baja+1 y Baja+2 == 1
 
     # Preparar features y target para entrenamiento
-    X_train = train_data.drop(columns = ['clase_ternaria'])
-    y_train = train_data['clase_ternaria']
+    X_train = df_train.drop(columns = ['clase_ternaria'])
+    y_train = df_train['clase_ternaria']
 
     X_predict = predict_data.drop(columns = ['clase_ternaria'])
     clientes_predict = predict_data['numero_de_cliente']
@@ -121,7 +123,7 @@ def entrenar_modelo_final(X_train: pd.DataFrame, y_train: pd.Series, mejores_par
         modelo = lgb.train(
             params_copy,
             train_data,
-            feval=ganancia_threshold,
+            feval=ganancia_ordenada,
             num_boost_round=num_boost_round
         )
         

@@ -44,30 +44,30 @@ def calcular_ganancia(y_true, y_pred):
 
 #-------------------------> Ganancia binaria para LGB
 
-def ganancia_lgb_binary(y_pred, y_true):
-    """
-    Función de ganancia para LightGBM en clasificación binaria.
-    Compatible con callbacks de LightGBM.
+# def ganancia_lgb_binary(y_pred, y_true):
+#     """
+#     Función de ganancia para LightGBM en clasificación binaria.
+#     Compatible con callbacks de LightGBM.
   
-    Args:
-        y_pred: Predicciones de probabilidad del modelo
-        y_true: Dataset de LightGBM con labels verdaderos
+#     Args:
+#         y_pred: Predicciones de probabilidad del modelo
+#         y_true: Dataset de LightGBM con labels verdaderos
   
-    Returns:
-        tuple: (eval_name, eval_result, is_higher_better)
-    """
-    # Obtener labels verdaderos
-    y_true_labels = y_true.get_label()
+#     Returns:
+#         tuple: (eval_name, eval_result, is_higher_better)
+#     """
+#     # Obtener labels verdaderos
+#     y_true_labels = y_true.get_label()
   
-    # Convertir probabilidades a predicciones binarias, calcular ganancia total y devolver en formato apto LGBM
-    y_pred_binary = (y_pred > 0.025).astype(int)
-    ganancia_total = calcular_ganancia(y_true_labels, y_pred_binary)
-    return 'ganancia', ganancia_total, True  # True = higher is better
+#     # Convertir probabilidades a predicciones binarias, calcular ganancia total y devolver en formato apto LGBM
+#     y_pred_binary = (y_pred > 0.025).astype(int)
+#     ganancia_total = calcular_ganancia(y_true_labels, y_pred_binary)
+#     return 'ganancia', ganancia_total, True  # True = higher is better
 
 
 #------------------------------------------------------> ganancia x corte
 
-def ganancia_threshold (y_pred, y_true) -> float:
+def ganancia_ordenada (y_pred, y_true) -> float:
 
     """
     Función de evaluación personalizada para LightGBM.
@@ -99,7 +99,9 @@ def ganancia_threshold (y_pred, y_true) -> float:
 
 
 
+
 # --------------------------> Ganancia para definición de umbral
+
 
 def calcular_ganancia_acumulada_optimizada(y_true, y_pred_proba) -> tuple:  
     """

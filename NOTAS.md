@@ -372,3 +372,329 @@ def feature_engineering_lag_delta_duckdb(df: pd.DataFrame, columnas: list[str], 
 #         return resultado
 #     finally:
 #         con.close()
+
+
+
+
+# #------------------------------------------> lag
+# def feature_engineering_lag(df: pd.DataFrame, columnas: list[str], cant_lag: int=1) -> pd.DataFrame:
+#     """
+#     Genera variables de lag para los atributos especificados utilizando SQL.
+  
+#     Parameters:
+#     -----------
+#     df : pd.DataFrame
+#         DataFrame con los datos
+#     columnas : list
+#         Lista de atributos para los cuales generar lags. Si es None, no se generan lags.
+#     cant_lag : int, default=1
+#         Cantidad de lags a generar para cada atributo
+  
+#     Returns:
+#     --------
+#     pd.DataFrame
+#         DataFrame con las variables de lag agregadas
+#     """
+
+#     logger.info(f"Realizando feature engineering con {cant_lag} lags para {len(columnas) if columnas else 0} atributos")
+
+#     if columnas is None or len(columnas) == 0:
+#         logger.warning("No se especificaron atributos para generar lags")
+#         return df
+  
+#     # Construir la consulta SQL
+#     sql = "SELECT *"
+  
+#     # Agregar los lags para los atributos especificados
+#     for attr in columnas:
+#         if attr in df.columns:
+#             for i in range(1, cant_lag + 1):
+#                 sql += f", lag({attr}, {i}) OVER (PARTITION BY numero_de_cliente ORDER BY foto_mes) AS {attr}_lag_{i}"
+#         else:
+#             logger.warning(f"El atributo {attr} no existe en el DataFrame")
+  
+#     # Completar la consulta
+#     sql += " FROM df"
+
+#     logger.debug(f"Consulta SQL: {sql}")
+
+#     # Ejecutar la consulta SQL
+#     con = duckdb.connect(database=":memory:")
+#     con.register("df", df)
+#     df = con.execute(sql).df()
+#     con.close()
+
+#     print(df.head())
+  
+#     logger.info(f"Feature engineering completado. DataFrame resultante con {df.shape[1]} columnas")
+
+#     return df
+
+
+#-----------------------------------------------------------  optim bayesiana con cv
+
+# def objetivo_ganancia_cv(trial, df) -> float: 
+#     """
+#     Parameters:
+#     trial: trial de optuna
+#     df: dataframe con datos
+
+  
+#     Description:
+#     Función objetivo que maximiza ganancia con k-fold.
+#     Utiliza configuración YAML para períodos y semilla.
+#     Define parametros para el modelo LightGBM
+#     Preparar dataset para entrenamiento con kfold y un porcentaje de la clase CONTINÚA
+#     Entrena modelo con función de ganancia personalizada
+#     Predecir y calcular ganancia
+#     Guardar cada iteración en JSON
+  
+#     Returns:
+#     float: ganancia total
+#     """
+#     # Hiperparámetros a optimizar
+#     params = {
+#         'objective': 'binary',
+#         'metric': 'None',  
+#         'learning_rate': trial.suggest_float('learning_rate', PARAMETROS_LGBM['learning_rate'][0], PARAMETROS_LGBM['learning_rate'][1]),
+#         'num_leaves': trial.suggest_int('num_leaves', PARAMETROS_LGBM['num_leaves'][0], PARAMETROS_LGBM['num_leaves'][1]),
+#         'max_depth': trial.suggest_int('max_depth', PARAMETROS_LGBM['max_depth'][0], PARAMETROS_LGBM['max_depth'][1]),
+#         'min_child_samples': trial.suggest_int('min_child_samples', PARAMETROS_LGBM['min_child_samples'][0], PARAMETROS_LGBM['min_child_samples'][1]),
+#         'subsample': trial.suggest_float('subsample', PARAMETROS_LGBM['subsample'][0], PARAMETROS_LGBM['subsample'][1]),
+#         'colsample_bytree': trial.suggest_float('colsample_bytree', PARAMETROS_LGBM['colsample_bytree'][0], PARAMETROS_LGBM['colsample_bytree'][1]),
+#         'max_bin': trial.suggest_int('max_bin', PARAMETROS_LGBM['max_bin'][0], PARAMETROS_LGBM['max_bin'][1]),
+#         'min_split_gain': trial.suggest_float('min_split_gain', PARAMETROS_LGBM['min_split_gain'][0], PARAMETROS_LGBM['min_split_gain'][1]),
+#         'verbosity': -1,
+#         'random_state': SEMILLAS[0],
+#         'zero_as_missing': trial.suggest_categorical('zero_as_missing', [True, False]) 
+#         }
+    
+#     num_boost_round = trial.suggest_int('num_boost_round', PARAMETROS_LGBM['num_boost_round'][0], PARAMETROS_LGBM['num_boost_round'][1])
+#     undersampling_ratio = PARAMETROS_LGBM['undersampling']
+
+
+#     # Preparar datos de entrenamiento (TRAIN + VALIDACION)
+#     if isinstance(GENERAL_TRAIN, list):
+#         train_data = df[df['foto_mes'].isin(GENERAL_TRAIN)]
+#     else: train_data = df[df['foto_mes'] == GENERAL_TRAIN]
+
+#     logger.info(
+#     f"Dataset GENERAL TRAIN - Antes del subsampleo de la clase CONTINUA: "
+#     f"Clase 1: {len(train_data[train_data['clase_ternaria'] == 1])}, "
+#     f"Clase 0: {len(train_data[train_data['clase_ternaria'] == 0])}"
+#     )
+
+#     # SUBMUESTREO
+#     clase_1 = train_data[train_data['clase_ternaria'] == 1]
+#     clase_0 = train_data[train_data['clase_ternaria'] == 0]    
+    
+#     semilla = SEMILLAS[0] if isinstance(SEMILLAS, list) else SEMILLAS
+#     clase_0_sample = clase_0.sample(frac=undersampling_ratio, random_state=semilla)
+#     train_data = pd.concat([clase_1, clase_0_sample], axis=0).sample(frac=1, random_state=semilla)
+    
+
+#     X_train = train_data.drop(columns = ['clase_ternaria'])
+#     y_train = train_data['clase_ternaria']
+    
+
+#     lgb_train = lgb.Dataset(X_train, label=y_train)
+    
+
+#     cv_results = lgb.cv(params,
+#                     num_boost_round=num_boost_round,
+#                     nfold=5,
+#                     stratified=True,                 
+#                     train_set=lgb_train,
+#                     shuffle = True,  
+#                     seed = SEMILLAS[0],
+#                     feval=ganancia_threshold,   #METRIC SE LA DECLARA VACÍA Y EN SU LUGAR SE USA FEVAL
+#                     callbacks=[lgb.early_stopping(50), lgb.log_evaluation(10)])
+    
+#     # Predecir probabilidades y binarizar
+#     ganancias_cv = cv_results['valid ganancia-mean']
+#     ganancia_maxima = np.max(ganancias_cv)
+#     best_iter = np.argmax(ganancias_cv)+1
+
+#     #Guardar el nro original de árboles y el optimizado:
+#     num_boost_round_original = trial.params['num_boost_round']
+#     trial.set_user_attr('num_boost_round_original', num_boost_round_original)
+#     trial.set_user_attr('best_iteration', int(best_iter)) 
+#     trial.params['num_boost_round'] = int(best_iter)
+
+
+    
+#     logger.debug(f"Trial {trial.number}: Ganancia = {ganancia_maxima:,.0f}")
+#     logger.debug(f"Trial {trial.number}: Mejor iteracion = {best_iter:,.0f}")
+    
+#     guardar_iteracion_cv(trial, ganancia_maxima, ganancias_cv, archivo_base=None)
+    
+#     return ganancia_maxima
+
+
+#---------------------------------------------------------------> Parametrización OPTUNA + aplicación de OB
+
+# def optimizar_cv(df, n_trials=int, study_name: str = None ) -> optuna.Study:
+#     """
+#     Args:
+#         df: DataFrame con datos
+#         n_trials: Número de trials a ejecutar
+#         study_name: Nombre del estudio (si es None, usa el de config.yaml)
+  
+#     Description:
+#        Ejecuta optimización bayesiana de hiperparámetros usando configuración YAML.
+#        Guarda cada iteración en un archivo JSON separado. 
+#        Pasos:
+#         1. Crear estudio de Optuna
+#         2. Ejecutar optimización
+#         3. Retornar estudio
+
+#     Returns:
+#         optuna.Study: Estudio de Optuna con resultados
+#     """
+
+#     study_name = STUDY_NAME
+
+
+#     logger.info(f"Iniciando optimización con CV {n_trials} trials")
+#     logger.info(f"Configuración: TRAIN para CV={GENERAL_TRAIN}, SEMILLA={SEMILLAS[0]}")
+  
+#         # Crear estudio de Optuna
+#     study = optuna.create_study(
+#         study_name=study_name,
+#         direction="maximize",
+#         sampler = optuna.samplers.TPESampler(seed= SEMILLAS[0]), 
+#         storage="sqlite:///optuna_studies.db",
+#         load_if_exists=True
+#     )
+
+#     # Aquí iría tu función objetivo y la optimización
+#     study.optimize(lambda trial: objetivo_ganancia_cv(trial, df), n_trials=n_trials)
+
+#     # Resultados
+#     logger.info(f"Mejor ganancia: {study.best_value:,.0f}")
+#     logger.info(f"Optimizacion CV completada. Mejor ganancia promedio: {study.best_value:,.0f}")
+#     logger.info(f"Mejores parámetros: {study.best_params}")
+#     logger.info(f"Total trials: {len(study.trials)}")
+
+#     return study
+    
+
+
+
+
+
+
+
+
+def feature_engineering_rank(df: pd.DataFrame, columnas: list[str]) -> pd.DataFrame:
+    """
+    Genera variables de ranking para los atributos especificados utilizando SQL.
+    Sobrescribe las columnas originales con el ranking calculado.
+  
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame con los datos
+    columnas : list[str]
+        Lista de atributos para los cuales generar rankings.
+      
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame con las variables originales reemplazadas por sus rankings.
+    """
+
+    if not columnas:
+        logger.warning("No se especificaron atributos para generar rankings")
+        raise ValueError("La lista de columnas no puede estar vacía")
+
+    # Filtrar columnas válidas
+    columnas_validas = [col for col in columnas if col in df.columns]
+    if not columnas_validas:
+        logger.warning("Ninguna de las columnas especificadas existe en el DataFrame")
+        raise ValueError("No hay columnas válidas para rankear")
+
+    logger.info(f"Realizando feature engineering RANK para {len(columnas_validas)} columnas: {columnas_validas}")
+
+    con = duckdb.connect(database=":memory:")
+    con.register("df_temp", df)
+
+    logger.info("testeo de tiempo")
+
+    # Columnas que NO se rankean, se mantienen igual
+    columnas_no_rank = [col for col in df.columns if col not in columnas_validas]
+
+    # Columnas que sí se rankean, reemplazando su contenido
+    rank_expressions = [
+        f"PERCENT_RANK() OVER (PARTITION BY foto_mes ORDER BY {col}) AS {col}"
+        for col in columnas_validas
+    ]
+
+    # Construir el SELECT final
+    sql = f"""
+    SELECT
+        {', '.join(columnas_no_rank + rank_expressions)}
+    FROM df_temp
+    """
+
+    try:
+        resultado = con.execute(sql).df()
+        logger.info(f"Feature engineering completado. DataFrame resultante con {resultado.shape[1]} columnas")
+        return resultado
+    finally:
+        con.close()
+
+
+        #-----------------------------------------------------> Rank positivo
+
+def feature_engineering_rank_pos(df: pd.DataFrame, columnas: list[str]) -> pd.DataFrame:
+    """
+    Genera rankings normalizados por signo para los atributos especificados usando DuckDB.
+    Los ranking son positivos, hay uno para el rango valores <0 y otro para el rango valores >0. los 0 permanecen en 0.
+    Sobrescribe las columnas originales con los rankings.
+    """
+    if not columnas:
+        logger.warning("No se especificaron atributos para generar rankings")
+        raise ValueError("La lista de columnas no puede estar vacía")
+    
+    columnas_validas = [col for col in columnas if col in df.columns]
+    if not columnas_validas:
+        logger.warning("Ninguna de las columnas especificadas existe en el DataFrame")
+        raise ValueError("No hay columnas válidas para rankear")
+    
+    logger.info(f"Realizando feature engineering RANK para {len(columnas_validas)} columnas: {columnas_validas}")
+    
+    con = duckdb.connect(database=":memory:")
+    con.register("df_temp", df)
+    
+    # Mantener orden original de columnas
+    rank_expressions = []
+    for col in df.columns:
+        if col in columnas_validas:
+            rank_expressions.append(f"""
+                CASE
+                    WHEN {col} < 0 THEN PERCENT_RANK() OVER (
+                        PARTITION BY foto_mes, SIGN({col}) 
+                        ORDER BY {col}
+                    )
+                    WHEN {col} > 0 THEN PERCENT_RANK() OVER (
+                        PARTITION BY foto_mes, SIGN({col}) 
+                        ORDER BY {col}
+                    )
+                    ELSE 0.0
+                END AS {col}
+            """)
+        else:
+            rank_expressions.append(col)
+    
+    sql = f"""
+    SELECT {', '.join(rank_expressions)}
+    FROM df_temp
+    """
+    
+    try:
+        resultado = con.execute(sql).df()
+        logger.info(f"Feature engineering completado. Shape: {resultado.shape}")
+        return resultado
+    finally:
+        con.close()

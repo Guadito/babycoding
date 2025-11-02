@@ -9,6 +9,9 @@ print(sys.executable)
 import os
 import duckdb
 import pandas as pd 
+import polars as pl
+from .loader import crear_clase_ternaria 
+import gc
 
 
 
@@ -16,63 +19,45 @@ logger = logging.getLogger("__name__")
 
 
 
-def feature_engineering_rank(df: pd.DataFrame, columnas: list[str]) -> pd.DataFrame:
+def realizar_feature_engineering (df: pd.DataFrame, lags:int = 1) -> pd.DataFrame:
+
+    df = crear_clase_ternaria(df)
+
+    col_montos = select_col_montos(df)
+    df = feature_engineering_rank_pos_batch(df, col_montos)
+
+    col = [c for c in df.columns if c not in ['numero_de_cliente', 'foto_mes', 'clase_ternaria']]
+    df = feature_engineering_lag_delta_batch(df, col, cant_lag = lags)
+
+    return df
+    
+
+#----------------------------> selecciona variables de montos 
+
+def select_col_montos(df: pd.DataFrame) -> list:
     """
-    Genera variables de ranking para los atributos especificados utilizando SQL.
-    Sobrescribe las columnas originales con el ranking calculado.
-  
-    Parameters
-    ----------
-    df : pd.DataFrame
-        DataFrame con los datos
-    columnas : list[str]
-        Lista de atributos para los cuales generar rankings.
-      
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame con las variables originales reemplazadas por sus rankings.
+    Selecciona columnas de "montos" de un DataFrame según patrones:
+      - columnas que empiezan con 'm'
+      - columnas que contienen 'Master_m o Visa_m'
+    Siempre excluye: 'numero_de_cliente' y 'foto_mes'
+    
+    Parámetros:
+        df (pd.DataFrame): DataFrame original
+
+    Retorna:
+        list: columnas seleccionadas
     """
+    # patrón: empieza con m  O contiene _m
+    pattern_incl = re.compile(r'(^m|Master_m|Visa_m)')
 
-    if not columnas:
-        logger.warning("No se especificaron atributos para generar rankings")
-        raise ValueError("La lista de columnas no puede estar vacía")
+    # columnas que cumplen el patrón
+    selected_cols = [col for col in df.columns if pattern_incl.search(col)]
 
-    # Filtrar columnas válidas
-    columnas_validas = [col for col in columnas if col in df.columns]
-    if not columnas_validas:
-        logger.warning("Ninguna de las columnas especificadas existe en el DataFrame")
-        raise ValueError("No hay columnas válidas para rankear")
+    # excluir columnas específicas
+    excluded = {"numero_de_cliente", "foto_mes"}
+    selected_cols = [col for col in selected_cols if col not in excluded]
 
-    logger.info(f"Realizando feature engineering RANK para {len(columnas_validas)} columnas: {columnas_validas}")
-
-    con = duckdb.connect(database=":memory:")
-    con.register("df_temp", df)
-
-    logger.info("testeo de tiempo")
-
-    # Columnas que NO se rankean, se mantienen igual
-    columnas_no_rank = [col for col in df.columns if col not in columnas_validas]
-
-    # Columnas que sí se rankean, reemplazando su contenido
-    rank_expressions = [
-        f"PERCENT_RANK() OVER (PARTITION BY foto_mes ORDER BY {col}) AS {col}"
-        for col in columnas_validas
-    ]
-
-    # Construir el SELECT final
-    sql = f"""
-    SELECT
-        {', '.join(columnas_no_rank + rank_expressions)}
-    FROM df_temp
-    """
-
-    try:
-        resultado = con.execute(sql).df()
-        logger.info(f"Feature engineering completado. DataFrame resultante con {resultado.shape[1]} columnas")
-        return resultado
-    finally:
-        con.close()
+    return selected_cols
 
 #-----------------------------------------------------> Rank positivo batch
 
@@ -129,143 +114,8 @@ def feature_engineering_rank_pos_batch(df: pd.DataFrame, columnas: list[str]) ->
     return resultado
 
 
-#-----------------------------------------------------> Rank positivo
-
-def feature_engineering_rank_pos(df: pd.DataFrame, columnas: list[str]) -> pd.DataFrame:
-    """
-    Genera rankings normalizados por signo para los atributos especificados usando DuckDB.
-    Los ranking son positivos, hay uno para el rango valores <0 y otro para el rango valores >0. los 0 permanecen en 0.
-    Sobrescribe las columnas originales con los rankings.
-    """
-    if not columnas:
-        logger.warning("No se especificaron atributos para generar rankings")
-        raise ValueError("La lista de columnas no puede estar vacía")
-    
-    columnas_validas = [col for col in columnas if col in df.columns]
-    if not columnas_validas:
-        logger.warning("Ninguna de las columnas especificadas existe en el DataFrame")
-        raise ValueError("No hay columnas válidas para rankear")
-    
-    logger.info(f"Realizando feature engineering RANK para {len(columnas_validas)} columnas: {columnas_validas}")
-    
-    con = duckdb.connect(database=":memory:")
-    con.register("df_temp", df)
-    
-    # Mantener orden original de columnas
-    rank_expressions = []
-    for col in df.columns:
-        if col in columnas_validas:
-            rank_expressions.append(f"""
-                CASE
-                    WHEN {col} < 0 THEN PERCENT_RANK() OVER (
-                        PARTITION BY foto_mes, SIGN({col}) 
-                        ORDER BY {col}
-                    )
-                    WHEN {col} > 0 THEN PERCENT_RANK() OVER (
-                        PARTITION BY foto_mes, SIGN({col}) 
-                        ORDER BY {col}
-                    )
-                    ELSE 0.0
-                END AS {col}
-            """)
-        else:
-            rank_expressions.append(col)
-    
-    sql = f"""
-    SELECT {', '.join(rank_expressions)}
-    FROM df_temp
-    """
-    
-    try:
-        resultado = con.execute(sql).df()
-        logger.info(f"Feature engineering completado. Shape: {resultado.shape}")
-        return resultado
-    finally:
-        con.close()
 
 
-
-#------------------------------------------> lag
-def feature_engineering_lag(df: pd.DataFrame, columnas: list[str], cant_lag: int=1) -> pd.DataFrame:
-    """
-    Genera variables de lag para los atributos especificados utilizando SQL.
-  
-    Parameters:
-    -----------
-    df : pd.DataFrame
-        DataFrame con los datos
-    columnas : list
-        Lista de atributos para los cuales generar lags. Si es None, no se generan lags.
-    cant_lag : int, default=1
-        Cantidad de lags a generar para cada atributo
-  
-    Returns:
-    --------
-    pd.DataFrame
-        DataFrame con las variables de lag agregadas
-    """
-
-    logger.info(f"Realizando feature engineering con {cant_lag} lags para {len(columnas) if columnas else 0} atributos")
-
-    if columnas is None or len(columnas) == 0:
-        logger.warning("No se especificaron atributos para generar lags")
-        return df
-  
-    # Construir la consulta SQL
-    sql = "SELECT *"
-  
-    # Agregar los lags para los atributos especificados
-    for attr in columnas:
-        if attr in df.columns:
-            for i in range(1, cant_lag + 1):
-                sql += f", lag({attr}, {i}) OVER (PARTITION BY numero_de_cliente ORDER BY foto_mes) AS {attr}_lag_{i}"
-        else:
-            logger.warning(f"El atributo {attr} no existe en el DataFrame")
-  
-    # Completar la consulta
-    sql += " FROM df"
-
-    logger.debug(f"Consulta SQL: {sql}")
-
-    # Ejecutar la consulta SQL
-    con = duckdb.connect(database=":memory:")
-    con.register("df", df)
-    df = con.execute(sql).df()
-    con.close()
-
-    print(df.head())
-  
-    logger.info(f"Feature engineering completado. DataFrame resultante con {df.shape[1]} columnas")
-
-    return df
-
-
-
-#----------------------------> selecciona variables de montos 
-def select_col_montos(df: pd.DataFrame) -> list:
-    """
-    Selecciona columnas de "montos" de un DataFrame según patrones:
-      - columnas que empiezan con 'm'
-      - columnas que contienen 'Master_m o Visa_m'
-    Siempre excluye: 'numero_de_cliente' y 'foto_mes'
-    
-    Parámetros:
-        df (pd.DataFrame): DataFrame original
-
-    Retorna:
-        list: columnas seleccionadas
-    """
-    # patrón: empieza con m  O contiene _m
-    pattern_incl = re.compile(r'(^m|Master_m|Visa_m)')
-
-    # columnas que cumplen el patrón
-    selected_cols = [col for col in df.columns if pattern_incl.search(col)]
-
-    # excluir columnas específicas
-    excluded = {"numero_de_cliente", "foto_mes"}
-    selected_cols = [col for col in selected_cols if col not in excluded]
-
-    return selected_cols
 
 #-------------------------------> Crea LAG y DELTA en batch.
 def feature_engineering_lag_delta_batch(df: pd.DataFrame, columnas: list[str], cant_lag: int = 1, batch_size: int = 25) -> pd.DataFrame:
@@ -356,6 +206,8 @@ def feature_engineering_lag_delta_batch(df: pd.DataFrame, columnas: list[str], c
     return df_result
 
 
+
+
 # --------------------------> clase pesada 
 
 def asignar_pesos(df: pd.DataFrame) -> pd.DataFrame:
@@ -371,3 +223,172 @@ def asignar_pesos(df: pd.DataFrame) -> pd.DataFrame:
         'CONTINUA': 1.0
     })
     return df
+
+
+
+
+# ---------------------> unsersampling para clase 0
+
+
+def aplicar_undersampling_clase0(
+    df: pd.DataFrame,
+    undersampling: float,
+    id_col: str = 'numero_de_cliente',
+    target_col: str = 'clase_ternaria',
+    seed: int = 42
+) -> pd.DataFrame:
+    """
+        Aplica undersampling a los clientes que tienen clase 0 en todos los períodos del dataset.
+        Mantiene el 100% de los clientes que alguna vez tuvieron '1' y submuestrea el pool de clientes que nunca tuvieron '1' al número
+        especificado en 'undersampling'.
+        Parameters
+    ----------
+    df : pd.DataFrame
+    undersampling : float
+        Proporción de clientes never_1 a conservar (ej: 0.2 = 20%)
+    id_col : str, optional
+        Nombre de la columna que identifica al cliente.
+    target_col : str, optional
+        Nombre de la columna target (ej. 'clase_ternaria').
+    seed : int, optional
+        Semilla para el muestreo reproducible.
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame subsampleado.
+    """
+   
+    # Primero calculamos cuántos IDs "never_1" hay
+    n_never_1 = duckdb.sql(f"""
+        SELECT COUNT(DISTINCT {id_col}) as n
+        FROM df
+        WHERE {id_col} NOT IN (
+            SELECT DISTINCT {id_col}
+            FROM df
+            WHERE {target_col} = 1
+        )
+    """).fetchone()[0]
+   
+    # Determinamos el sample size
+    sample_size = int(n_never_1 * undersampling)
+   
+    # Si sample_size es 0, solo devolver los que tienen clase 1
+    if sample_size == 0:
+        result = duckdb.sql(f"""
+            SELECT df.*
+            FROM df
+            WHERE {id_col} IN (
+                SELECT DISTINCT {id_col}
+                FROM df
+                WHERE {target_col} = 1
+            )
+        """).df()
+        return result
+   
+    # Query principal - usando ORDER BY random() con seed
+    result = duckdb.sql(f"""
+        WITH
+        ids_ever_1 AS (
+            SELECT DISTINCT {id_col}
+            FROM df
+            WHERE {target_col} = 1
+        ),
+        ids_never_1 AS (
+            SELECT DISTINCT {id_col}
+            FROM df
+            WHERE {id_col} NOT IN (SELECT {id_col} FROM ids_ever_1)
+        ),
+        ids_never_1_sampled AS (
+            SELECT {id_col}
+            FROM (
+                SELECT {id_col}, random() as rnd
+                FROM ids_never_1
+            )
+            ORDER BY rnd
+            LIMIT {sample_size}
+        ),
+        ids_to_keep AS (
+            SELECT {id_col} FROM ids_ever_1
+            UNION ALL
+            SELECT {id_col} FROM ids_never_1_sampled
+        )
+        SELECT df.*
+        FROM df
+        INNER JOIN ids_to_keep USING ({id_col})
+    """).df()
+   
+    # Setear la seed antes de ejecutar
+    duckdb.execute(f"SELECT setseed({seed / 1000000.0})")
+    
+    return result
+
+# ----------------- > medias móviles
+
+def feature_engineering_rolling_mean(df, columnas_validas, ventana=3):
+    logger.info(f"Realizando medias móviles a {len(columnas_validas)} columnas. Promedio de {ventana} meses ")
+    
+    df_pl = pl.from_pandas(df).lazy()
+
+    # Crear periodo0 si no existe
+    if 'periodo0' not in df.columns:
+        df_pl = df_pl.with_columns(
+            ((pl.col("foto_mes") // 100) * 12 + (pl.col("foto_mes") % 100)).alias("periodo0"))
+        drop_periodo0 = True
+    else:
+        drop_periodo0 = False
+
+    # Expresiones rolling
+    expresiones = [
+        pl.col(col).shift(1)
+        .rolling_mean(window_size=ventana, min_periods=1)
+        .over("numero_de_cliente", order_by="periodo0")
+        .alias(f"{col}_rolling_mean_{ventana}")
+        for col in columnas_validas
+    ]
+
+    df_pl = df_pl.with_columns(expresiones)
+
+    if drop_periodo0:
+        df_pl = df_pl.drop("periodo0")
+
+    df_result = df_pl.collect().to_pandas()
+    logger.info(f"Completado: {df_result.shape[0]:,} filas x {df_result.shape[1]:,} columnas")
+    
+    gc.collect()
+    return df_result
+
+# ----------------------> medias móviles
+
+
+def feature_engineering_rolling_mean(df, columnas_validas, ventana=3):
+    logger.info(f"Realizando medias móviles a {len(columnas_validas)} columnas. Promedio de {ventana} meses ")
+    
+    df_pl = pl.from_pandas(df).lazy()
+
+    # Crear periodo0 si no existe
+    if 'periodo0' not in df.columns:
+        df_pl = df_pl.with_columns(
+            ((pl.col("foto_mes") // 100) * 12 + (pl.col("foto_mes") % 100)).alias("periodo0"))
+        drop_periodo0 = True
+    else:
+        drop_periodo0 = False
+
+    # Expresiones rolling
+    expresiones = [
+        pl.col(col).shift(1)
+        .rolling_mean(window_size=ventana, min_periods=1)
+        .over("numero_de_cliente", order_by="periodo0")
+        .alias(f"{col}_rolling_mean_{ventana}")
+        for col in columnas_validas
+    ]
+
+    df_pl = df_pl.with_columns(expresiones)
+
+    if drop_periodo0:
+        df_pl = df_pl.drop("periodo0")
+
+    df_result = df_pl.collect().to_pandas()
+    logger.info(f"Completado: {df_result.shape[0]:,} filas x {df_result.shape[1]:,} columnas")
+    
+    gc.collect()
+    return df_result
