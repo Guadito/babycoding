@@ -35,9 +35,7 @@ logger = logging.getLogger(__name__)
 logger.info("Iniciando programa de optimización con log fechado")
 
 
-
-### Manejo de Configuración en YAML ###
-logger.info("Configuración cargada desde YAML")
+logger.info("Configuración cargada desde config")
 logger.info(f"STUDY_NAME: {STUDY_NAME}")
 logger.info(f"DT crudo DATA_PATH_BASE_VM: {DATA_PATH_BASE_VM}")
 logger.info(f"DT transformado DATA_PATH_2: {DATA_PATH_TRANS_VM}")
@@ -65,13 +63,14 @@ def main():
 
     df_f = crear_clase_ternaria(df_f)
 
+
     # #  #SAMPLE
-    n_sample = 50000
-    df_f, _ = train_test_split(
-        df_f,
-        train_size=n_sample,
-        stratify=df_f['clase_ternaria'],
-        random_state=42)
+    # n_sample = 50000
+    # df_f, _ = train_test_split(
+    #     df_f,
+    #     train_size=n_sample,
+    #     stratify=df_f['clase_ternaria'],
+    #     random_state=42)
 
     
 
@@ -117,7 +116,7 @@ def main():
     logger.info("=== GENERANDO TABLA DE DECISIÓN DE CORTE ===")
     
 
-    cortes = [9000, 9500, 10000, 10500]
+    cortes = [9000, 9500, 10000, 10500, 12000, 12500, 13000, 16000, 18000]
 
     df_resultados = simular_cortes_kaggle(
     y_pred_prob=y_pred_prob,

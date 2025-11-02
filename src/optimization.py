@@ -288,7 +288,7 @@ def evaluar_wilcoxon(df: pd.DataFrame, top_params: list, n_seeds: int = 10) -> d
 
 
     df_train = df[df['foto_mes'].isin(MES_TRAIN)]
-    df_val = df[df['foto_mes'] == MES_VAL]
+    df_val = df[df['foto_mes'] == MES_TEST]
 
 
     df_train = convertir_clase_ternaria_a_target(df_train, baja_2_1=True) # Entreno el modelo con Baja+1 y Baja+2 == 1
@@ -325,19 +325,17 @@ def evaluar_wilcoxon(df: pd.DataFrame, top_params: list, n_seeds: int = 10) -> d
                 params_copy, 
                 train_data,
                 num_boost_round=num_boost_round, 
-                feval=ganancia_threshold,
+                feval=ganancia_ordenada,
                 callbacks=[lgb.log_evaluation(0)]
             )
 
             y_pred_prob = model.predict(X_val)
-            ganancias_acum = calcular_ganancia(y_val, y_pred_prob)
-            g = ganancias_acum.max()  # Solo la ganancia máxima
+            y_pred_binary = (y_pred_prob > 0.025).astype(int)
+            g = calcular_ganancia(y_val, y_pred_binary)
             ganancias.append(g)
 
         ganancias_top.append(ganancias)
         logger.info(f"  Modelo {idx}: Mediana {np.median(ganancias):,.0f}")
-    
-
 
     # Comparaciones Wilcoxon
     logger.info("\nComparaciones Wilcoxon:")
@@ -378,8 +376,6 @@ def evaluar_wilcoxon(df: pd.DataFrame, top_params: list, n_seeds: int = 10) -> d
 
 
 
-
-
 #-----------------------------------------------> evalua el modelo en test
 
 def evaluar_en_test (df: pd.DataFrame, mejores_params:dict) -> tuple:
@@ -397,10 +393,10 @@ def evaluar_en_test (df: pd.DataFrame, mejores_params:dict) -> tuple:
     logger.info(f"Período de test: {MES_TEST}")
   
     # Preparar datos de entrenamiento (TRAIN + VALIDACION)
-    if isinstance(MES_TRAIN, list):
-        periodos_entrenamiento = MES_TRAIN + [MES_VAL]
+    if isinstance(GENERAL_TRAIN, list):
+        periodos_entrenamiento = GENERAL_TRAIN
     else:
-        periodos_entrenamiento = [MES_TRAIN, MES_VAL]
+        periodos_entrenamiento = GENERAL_TRAIN
   
 
     df_train_completo = df[df['foto_mes'].isin(periodos_entrenamiento)]
@@ -469,7 +465,7 @@ def evaluar_en_test (df: pd.DataFrame, mejores_params:dict) -> tuple:
         'precision': float(precision),
         'recall': float(recall),
         'accuracy': float(accuracy),
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.datetime.now().isoformat()
     }
   
     guardar_resultados_test(resultados_test)
@@ -529,6 +525,8 @@ def objetivo_ganancia_cv(trial, df) -> float:
         train_data = df[df['foto_mes'].isin(GENERAL_TRAIN)]
     else: train_data = df[df['foto_mes'] == GENERAL_TRAIN]
 
+    train_data = convertir_clase_ternaria_a_target(train_data, baja_2_1=True) # Entreno el modelo con Baja+1 y Baja+2 == 1
+
     logger.info(
     f"Dataset GENERAL TRAIN - Antes del subsampleo de la clase CONTINUA: "
     f"Clase 1: {len(train_data[train_data['clase_ternaria'] == 1])}, "
@@ -571,8 +569,6 @@ def objetivo_ganancia_cv(trial, df) -> float:
     trial.set_user_attr('num_boost_round_original', num_boost_round_original)
     trial.set_user_attr('best_iteration', int(best_iter)) 
     trial.params['num_boost_round'] = int(best_iter)
-
-
 
     
     logger.debug(f"Trial {trial.number}: Ganancia = {ganancia_maxima:,.0f}")

@@ -392,3 +392,76 @@ def feature_engineering_rolling_mean(df, columnas_validas, ventana=3):
     
     gc.collect()
     return df_result
+
+
+def feature_engineering_rolling_mean2(df, columnas_validas, ventana=3, batch_size=10):
+    logger.info(f"Realizando medias móviles a {len(columnas_validas)} columnas. Promedio de {ventana} meses ")
+    
+    # Crear periodo0 si no existe
+    if 'periodo0' not in df.columns:
+        df = df.copy()
+        df['periodo0'] = (df["foto_mes"] // 100) * 12 + (df["foto_mes"] % 100)
+        drop_periodo0 = True
+    else:
+        drop_periodo0 = False
+    
+    # Columnas base necesarias
+    columnas_base = ['numero_de_cliente', 'periodo0']
+    
+    # Lista para almacenar las nuevas columnas
+    resultados = []
+    
+    # Procesar en lotes pequeños
+    total_batches = (len(columnas_validas) + batch_size - 1) // batch_size
+    
+    for i in range(0, len(columnas_validas), batch_size):
+        batch = columnas_validas[i:i+batch_size]
+        batch_num = i // batch_size + 1
+        logger.info(f"Procesando lote {batch_num}/{total_batches} ({len(batch)} columnas)")
+        
+        # Seleccionar solo las columnas necesarias para este lote
+        cols_to_use = columnas_base + batch
+        df_subset = df[cols_to_use]
+        
+        try:
+            # Convertir a Polars lazy
+            df_pl = pl.from_pandas(df_subset).lazy()
+            
+            # Crear expresiones rolling para este lote
+            expresiones = [
+                pl.col(col).shift(1)
+                .rolling_mean(window_size=ventana, min_periods=1)
+                .over("numero_de_cliente", order_by="periodo0")
+                .alias(f"{col}_rolling_mean_{ventana}")
+                for col in batch
+            ]
+            
+            # Aplicar transformaciones
+            df_transformed = df_pl.with_columns(expresiones).collect()
+            
+            # Extraer solo las nuevas columnas (no las originales)
+            nuevas_cols = [f"{col}_rolling_mean_{ventana}" for col in batch]
+            df_nuevas = df_transformed.select(nuevas_cols).to_pandas()
+            
+            resultados.append(df_nuevas)
+            
+            # Limpiar memoria
+            del df_subset, df_pl, df_transformed, df_nuevas
+            gc.collect()
+            
+        except Exception as e:
+            logger.error(f"Error en lote {batch_num}: {str(e)}")
+            raise
+    
+    # Concatenar todas las nuevas columnas al dataframe original
+    logger.info("Concatenando resultados...")
+    df_result = pd.concat([df] + resultados, axis=1)
+    
+    # Eliminar periodo0 si fue creado temporalmente
+    if drop_periodo0:
+        df_result = df_result.drop("periodo0", axis=1)
+    
+    logger.info(f"Completado: {df_result.shape[0]:,} filas x {df_result.shape[1]:,} columnas")
+    
+    gc.collect()
+    return df_result
